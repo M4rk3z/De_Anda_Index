@@ -1,10 +1,51 @@
-﻿const SUPABASE_URL = 'https://ehwxvirqiwztonbgosfy.supabase.co';
+const SUPABASE_URL = 'https://ehwxvirqiwztonbgosfy.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVod3h2aXJxaXd6dG9uYmdvc2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNDAwMTUsImV4cCI6MjA5NTkxNjAxNX0.VzMoS_kOFIjvSz_ewdu6Q9_vAIwAnTuqPTlxFvzfJk8';
 
 const supabaseClient = supabase.createClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY
 );
+
+const ACCESOS_POR_SECCION = {
+  buscador: [0, 1, 2],
+  nuevoCodigo: [0, 1],
+  panelControl: [0, 1],
+  solicitudes: [0, 1, 2],
+  manual: [0, 1, 2]
+};
+
+function obtenerNivelUsuario() {
+  const valor = localStorage.getItem('usuarioNivel');
+  if (valor === null || valor === '') return null;
+
+  const nivel = Number(valor);
+  return [0, 1, 2].includes(nivel) ? nivel : null;
+}
+
+function usuarioPuede(...niveles) {
+  const nivel = obtenerNivelUsuario();
+  return nivel !== null && niveles.includes(nivel);
+}
+
+function puedeAccederSeccion(section) {
+  const niveles = ACCESOS_POR_SECCION[section];
+  return Array.isArray(niveles) && usuarioPuede(...niveles);
+}
+
+function mostrarAccesoDenegado() {
+  const viewer = document.getElementById('viewer');
+  if (!viewer) return;
+
+  viewer.innerHTML = `
+    <div class="status-box">No tienes permisos para acceder a esta funcion.</div>
+  `;
+}
+
+function aplicarPermisosNavegacion() {
+  document.querySelectorAll('#sideMenu [data-section]').forEach(button => {
+    button.hidden = !puedeAccederSeccion(button.dataset.section);
+  });
+}
 
 function toggleSidebar() {
   const menu = document.getElementById('sideMenu');
@@ -18,6 +59,11 @@ function showSection(section) {
   const viewer = document.getElementById('viewer');
 
   if (!viewer) return;
+
+  if (section !== 'bienvenida' && !puedeAccederSeccion(section)) {
+    mostrarAccesoDenegado();
+    return;
+  }
 
   if (section === 'bienvenida') {
     const usuarioActivo = localStorage.getItem('usuarioActivo') || 'Usuario';
@@ -88,17 +134,21 @@ function renderBuscador() {
         <table class="catalog-table results-table">
           <thead>
             <tr>
+              <th>Codigo Pixvs</th>
               <th>Nombre Pixvs</th>
-              <th>Nombre SAP</th>
               <th>Codigo SAP</th>
+              <th>Nombre SAP</th>
+              <th>Version SAP</th>
+              <th>Revision SAP</th>
               <th>Status</th>
               <th>Fecha Ultimo Cambio</th>
+              <th>Responsable</th>
             </tr>
           </thead>
 
           <tbody id="buscadorResults">
             <tr>
-              <td colspan="5">Sin resultados todavia.</td>
+              <td colspan="9">Sin resultados todavia.</td>
             </tr>
           </tbody>
         </table>
@@ -125,7 +175,7 @@ async function buscarMateriaPrima() {
 
     tbody.innerHTML = `
       <tr>
-        <td colspan="5">Sin resultados todavia.</td>
+        <td colspan="9">Sin resultados todavia.</td>
       </tr>
     `;
 
@@ -134,20 +184,21 @@ async function buscarMateriaPrima() {
 
   status.textContent = 'Buscando...';
 
-  const filtro = `"Nombre Pixvs".ilike.%${query}%,"Nombre SAP".ilike.%${query}%,"Codigo SAP".ilike.%${query}%`;
+  const filtro = `"Codigo Pixvs".ilike.%${query}%,"Nombre Pixvs".ilike.%${query}%,"Codigo SAP".ilike.%${query}%,"Nombre SAP".ilike.%${query}%`;
 
   const { data, error } = await supabaseClient
-    .from('Materia_Prima')
-    .select('"Nombre Pixvs","Nombre SAP","Codigo SAP","Status","Fecha_Ultimo_Cambio"')
+    .from('BD_General')
+    .select('"Codigo Pixvs","Nombre Pixvs","Codigo SAP","Nombre SAP","Version SAP","Revision SAP","Status","Fecha de ultimo Cambio","Responsable"')
     .or(filtro)
-    .limit(100);
+    .order('Codigo SAP', { ascending: true })
+    .limit(1000);
 
   if (error) {
     status.textContent = 'Error al buscar en Supabase.';
 
     tbody.innerHTML = `
       <tr>
-        <td colspan="5">${escapeHtml(error.message)}</td>
+        <td colspan="9">${escapeHtml(error.message)}</td>
       </tr>
     `;
 
@@ -159,7 +210,7 @@ async function buscarMateriaPrima() {
 
     tbody.innerHTML = `
       <tr>
-        <td colspan="5">No hay coincidencias.</td>
+        <td colspan="9">No hay coincidencias.</td>
       </tr>
     `;
 
@@ -170,11 +221,15 @@ async function buscarMateriaPrima() {
 
   tbody.innerHTML = data.map(item => `
     <tr>
+      <td>${escapeHtml(item['Codigo Pixvs'])}</td>
       <td>${escapeHtml(item['Nombre Pixvs'])}</td>
-      <td>${escapeHtml(item['Nombre SAP'])}</td>
       <td>${escapeHtml(item['Codigo SAP'])}</td>
+      <td>${escapeHtml(item['Nombre SAP'])}</td>
+      <td>${escapeHtml(item['Version SAP'])}</td>
+      <td>${escapeHtml(item['Revision SAP'])}</td>
       <td>${renderStatusBadge(item['Status'])}</td>
-      <td>${escapeHtml(formatearFecha(item['Fecha_Ultimo_Cambio']))}</td>
+      <td>${escapeHtml(formatearFecha(item['Fecha de ultimo Cambio']))}</td>
+      <td>${escapeHtml(item['Responsable'])}</td>
     </tr>
   `).join('');
 }
@@ -240,22 +295,27 @@ function formatearFecha(fecha) {
 function renderStatusBadge(status) {
   const statusNormalizado = normalizarTextoFlexible(status);
 
-  let clase = 'status-control';
-  let etiqueta = 'Control';
+  let clase = 'status-proceso';
+  let etiqueta = String(status || 'Sin status').trim();
 
-  if (statusNormalizado === 'DISPONIBLE') {
-    clase = 'status-disponible';
-    etiqueta = 'Disponible';
+  if (statusNormalizado === '1PROCESO') {
+    clase = 'status-proceso';
+    etiqueta = '1 - Proceso';
   }
 
-  if (statusNormalizado === 'BLOQUEADO') {
+  if (statusNormalizado === '2LOCAL') {
+    clase = 'status-local';
+    etiqueta = '2 - Local';
+  }
+
+  if (statusNormalizado === '3SAP') {
+    clase = 'status-sap';
+    etiqueta = '3 - SAP';
+  }
+
+  if (statusNormalizado === '4BLOQUEADO') {
     clase = 'status-bloqueado';
-    etiqueta = 'Bloqueado';
-  }
-
-  if (statusNormalizado === 'CONTROL') {
-    clase = 'status-control';
-    etiqueta = 'Control';
+    etiqueta = '4 - Bloqueado';
   }
 
   return `

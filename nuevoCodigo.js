@@ -1,7 +1,9 @@
-const TABLA_CODIGOS = 'Materia_Prima';
+const TABLA_CODIGOS = 'BD_General';
+const COLUMNA_CODIGO_PIXVS = 'Codigo Pixvs';
 const COLUMNA_CODIGO = 'Codigo SAP';
 const COLUMNA_DESCRIPCION_1 = 'Nombre Pixvs';
 const COLUMNA_DESCRIPCION_2 = 'Nombre SAP';
+const COLUMNA_FECHA_CAMBIO = 'Fecha de ultimo Cambio';
 
 let nuevoCodigoState = {
   grupoNombre: '',
@@ -21,6 +23,11 @@ let nuevoCodigoState = {
  *************************************************/
 
 function renderNuevoCodigo() {
+  if (!usuarioPuede(0, 1)) {
+    mostrarAccesoDenegado();
+    return;
+  }
+
   const viewer = document.getElementById('viewer');
 
   viewer.innerHTML = `
@@ -309,6 +316,31 @@ function accionPrincipalNuevoCodigo() {
 
 function actualizarBotonPrincipalNuevoCodigo() {
   const btn = document.getElementById('btnNuevoCodigoPrincipal');
+  const btnAsignarTipo = document.getElementById('btnSolicitudAsignarTipo');
+  const btnGenerarConsecutivo = document.getElementById('btnSolicitudGenerarConsecutivo');
+
+  const esPT = esGrupoPTNuevoCodigo();
+  const tieneGrupo = Boolean(nuevoCodigoState.grupoNombre);
+  const tieneFamilia = Boolean(
+    nuevoCodigoState.familiaNombre && nuevoCodigoState.idFamilia
+  );
+  const tieneTipo = Boolean(
+    nuevoCodigoState.tipoNombre && nuevoCodigoState.idTipo
+  );
+  const tieneMaterial = Boolean(
+    nuevoCodigoState.materialNombre && nuevoCodigoState.idMaterial
+  );
+
+  if (btnAsignarTipo) {
+    btnAsignarTipo.hidden = !esPT;
+    btnAsignarTipo.disabled = !tieneGrupo || !tieneFamilia;
+  }
+
+  if (btnGenerarConsecutivo) {
+    btnGenerarConsecutivo.disabled = esPT
+      ? !tieneGrupo || !tieneFamilia || !tieneTipo
+      : !tieneGrupo || !tieneFamilia || !tieneTipo || !tieneMaterial;
+  }
 
   if (!btn) return;
 
@@ -585,6 +617,10 @@ function asignarConsecutivoNuevoCodigo(precodigo, consecutivoNumero, longitudCon
 
   setNuevoCodigoStatus('Codigo generado correctamente.');
   prepararVistaPreviaNuevoCodigo();
+
+  if (typeof window.actualizarBotonSubirSolicitud === 'function') {
+    window.actualizarBotonSubirSolicitud();
+  }
 }
 
 /*************************************************
@@ -592,6 +628,11 @@ function asignarConsecutivoNuevoCodigo(precodigo, consecutivoNumero, longitudCon
  *************************************************/
 
 async function guardarNuevoCodigoMateriaPrima() {
+  if (!usuarioPuede(0, 1)) {
+    mostrarAccesoDenegado();
+    return;
+  }
+
   const descripcionInput = document.getElementById('nuevoCodigoDescripcionVieja');
   const codigoGeneradoEl = document.getElementById('nuevoCodigoGenerado');
 
@@ -618,15 +659,23 @@ async function guardarNuevoCodigoMateriaPrima() {
     return;
   }
 
-  setNuevoCodigoStatus('Guardando en Materia_Prima...');
+  setNuevoCodigoStatus('Guardando en BD_General...');
+
+  const responsable = localStorage.getItem('usuarioActivo') || 'Usuario';
 
   const { error } = await supabaseClient
     .from(TABLA_CODIGOS)
     .insert([
       {
+        [COLUMNA_CODIGO_PIXVS]: null,
         [COLUMNA_DESCRIPCION_1]: descripcion,
+        [COLUMNA_CODIGO]: codigoNuevo,
         [COLUMNA_DESCRIPCION_2]: construirDescripcionSAPNuevoCodigo(descripcion),
-        [COLUMNA_CODIGO]: codigoNuevo
+        'Version SAP': '01',
+        'Revision SAP': '01',
+        'Status': '1 - Proceso',
+        [COLUMNA_FECHA_CAMBIO]: new Date().toISOString(),
+        'Responsable': responsable
       }
     ]);
 
@@ -635,7 +684,7 @@ async function guardarNuevoCodigoMateriaPrima() {
     return;
   }
 
-  setNuevoCodigoStatus('Codigo guardado correctamente en Materia_Prima.');
+  setNuevoCodigoStatus('Codigo guardado correctamente en BD_General.');
 }
 
 function construirDescripcionSAPNuevoCodigo(descripcion) {
@@ -763,6 +812,10 @@ function limpiarCodigoGeneradoNuevoCodigo() {
 
   if (codigoGenerado) {
     codigoGenerado.textContent = '-';
+  }
+
+  if (typeof window.actualizarBotonSubirSolicitud === 'function') {
+    window.actualizarBotonSubirSolicitud();
   }
 }
 
@@ -1034,6 +1087,8 @@ function onNuevoCodigoMaterialChange() {
   nuevoCodigoState.idMaterial = selectedOption.dataset.idMaterial || '';
   nuevoCodigoState.nomenclaturaMaterial =
     selectedOption.dataset.nomenclaturaMaterial || '';
+
+  actualizarBotonPrincipalNuevoCodigo();
 
   limpiarCodigoGeneradoNuevoCodigo();
   limpiarVistaPreviaNuevoCodigo();

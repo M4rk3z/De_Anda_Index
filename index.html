@@ -45,11 +45,11 @@
           </button>
 
           <nav id="sideMenu" class="side-menu open">
-            <button onclick="showSection('buscador')">Buscador</button>
-            <button onclick="showSection('nuevoCodigo')">Nuevo Codigo</button>
-            <button onclick="showSection('panelControl')">Panel de control</button>
-            <button onclick="showSection('solicitudes')">Solicitudes</button>
-            <button onclick="showSection('manual')">Manual</button>
+            <button data-section="buscador" onclick="showSection('buscador')">Buscador</button>
+            <button data-section="nuevoCodigo" onclick="showSection('nuevoCodigo')">Nuevo Codigo</button>
+            <button data-section="panelControl" onclick="showSection('panelControl')">Panel de control</button>
+            <button data-section="solicitudes" onclick="showSection('solicitudes')">Solicitudes</button>
+            <button data-section="manual" onclick="showSection('manual')">Manual</button>
           </nav>
         </aside>
 
@@ -63,10 +63,11 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="scripts.js"></script>
-    <script src="nuevoCodigo.js"></script>
-    <script src="panel.js"></script>
-    <script src="Solicitudes.js"></script>
-    <script src="login.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="scripts.js?v=20260623-1"></script>
+    <script src="nuevoCodigo.js?v=20260623-1"></script>
+    <script src="panel.js?v=20260623-2"></script>
+    <script src="Solicitudes.js?v=20260623-17"></script>
+    <script src="login.js?v=20260623-1"></script>
   </body>
 </html>

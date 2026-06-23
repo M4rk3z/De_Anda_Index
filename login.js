@@ -11,7 +11,7 @@ async function login(event) {
   try {
     const { data, error } = await supabaseClient
       .from('Usuarios_Login')
-      .select('id, User_Nombre, User_Pass')
+      .select('id, User_Nombre, User_Pass, Nivel')
       .ilike('User_Nombre', usuario)
       .maybeSingle();
 
@@ -42,6 +42,7 @@ async function login(event) {
     localStorage.setItem('sesionActiva', 'true');
     localStorage.setItem('usuarioActivo', data.User_Nombre);
     localStorage.setItem('usuarioId', data.id);
+    localStorage.setItem('usuarioNivel', String(data.Nivel ?? ''));
 
     entrarAlSistema();
   } catch (error) {
@@ -65,6 +66,8 @@ function entrarAlSistema() {
   loginScreen.style.display = 'none';
   appScreen.style.display = 'flex';
 
+  aplicarPermisosNavegacion();
+
   if (viewer) {
     viewer.innerHTML = `
       <h2>Bienvenido, ${usuarioActivo}</h2>
@@ -77,6 +80,7 @@ function cerrarSesion() {
   localStorage.removeItem('sesionActiva');
   localStorage.removeItem('usuarioActivo');
   localStorage.removeItem('usuarioId');
+  localStorage.removeItem('usuarioNivel');
 
   const appScreen = document.getElementById('appScreen');
   const loginScreen = document.getElementById('loginScreen');
