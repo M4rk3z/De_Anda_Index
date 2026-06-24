@@ -1540,7 +1540,7 @@ Boton de cerrar sesion
 
 .catalog-admin-toolbar {
   display: grid;
-  grid-template-columns: minmax(220px, 320px) minmax(260px, 1fr) auto;
+  grid-template-columns: minmax(190px, 260px) minmax(240px, 1fr) minmax(180px, 220px) auto;
   align-items: end;
   gap: 12px;
 }

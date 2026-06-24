@@ -3,6 +3,7 @@ let editorMaestroRows = [];
 const CATALOGOS_ADMIN = {
   'DT_Grupos': {
     label: 'DT_Grupos',
+    sortField: 'ID',
     keys: ['Grupo', 'ID'],
     fields: [
       { name: 'Grupo', label: 'Grupo' },
@@ -11,6 +12,7 @@ const CATALOGOS_ADMIN = {
   },
   'MP:MateriaPrima': {
     label: 'MP:MateriaPrima',
+    sortField: 'IdFamilia',
     keys: ['Grupo', 'Familia', 'IdFamilia'],
     fields: [
       { name: 'Grupo', label: 'Grupo' },
@@ -20,6 +22,7 @@ const CATALOGOS_ADMIN = {
   },
   'MP:Materiales': {
     label: 'MP:Materiales',
+    sortField: 'Id_Material',
     keys: ['Grupo', 'Material', 'Id_Material'],
     fields: [
       { name: 'Grupo', label: 'Grupo' },
@@ -30,6 +33,7 @@ const CATALOGOS_ADMIN = {
   },
   'MP:Tipos': {
     label: 'MP:Tipos',
+    sortField: 'id_Keys',
     keys: ['id_Keys'],
     fields: [
       { name: 'id_Keys', label: 'ID Key', readonly: true },
@@ -40,6 +44,7 @@ const CATALOGOS_ADMIN = {
   },
   'PT:Tipos': {
     label: 'PT:Tipos',
+    sortField: 'Registro_Id',
     keys: ['Registro_Id'],
     fields: [
       { name: 'Registro_Id', label: 'Registro ID', readonly: true },
@@ -52,6 +57,7 @@ const CATALOGOS_ADMIN = {
 
 let catalogoAdminActual = 'DT_Grupos';
 let catalogoAdminRows = [];
+let catalogoAdminOrden = 'asc';
 
 function renderPanelControl() {
   const viewer = document.getElementById('viewer');
@@ -719,6 +725,18 @@ function renderAdministrarCatalogos() {
           >
         </div>
 
+        <div class="field-block">
+          <label for="catalogoAdminOrden">Orden por ID</label>
+          <select id="catalogoAdminOrden" onchange="cambiarOrdenCatalogoAdmin(this.value)">
+            <option value="asc" ${catalogoAdminOrden === 'asc' ? 'selected' : ''}>
+              Menor a mayor
+            </option>
+            <option value="desc" ${catalogoAdminOrden === 'desc' ? 'selected' : ''}>
+              Mayor a menor
+            </option>
+          </select>
+        </div>
+
         <button type="button" onclick="cargarCatalogoAdmin()">Actualizar</button>
       </div>
 
@@ -749,6 +767,16 @@ function seleccionarCatalogoAdmin(tabla) {
 
   renderFormularioNuevoCatalogo();
   cargarCatalogoAdmin();
+}
+
+function cambiarOrdenCatalogoAdmin(orden) {
+  if (!usuarioPuede(0) || !['asc', 'desc'].includes(orden)) return;
+
+  catalogoAdminOrden = orden;
+  ordenarCatalogoAdminRows();
+
+  const filtro = document.getElementById('catalogoAdminFiltro')?.value || '';
+  renderFilasCatalogoAdmin(filtro);
 }
 
 function renderFormularioNuevoCatalogo() {
@@ -789,7 +817,7 @@ async function cargarCatalogoAdmin() {
   const { data, error } = await supabaseClient
     .from(catalogoAdminActual)
     .select('*')
-    .order(config.fields.find(field => !field.readonly)?.name || config.fields[0].name, {
+    .order(config.sortField, {
       ascending: true
     })
     .limit(1000);
@@ -802,8 +830,26 @@ async function cargarCatalogoAdmin() {
   }
 
   catalogoAdminRows = data || [];
+  ordenarCatalogoAdminRows();
   status.textContent = `Registros cargados: ${catalogoAdminRows.length}`;
   renderFilasCatalogoAdmin();
+}
+
+function ordenarCatalogoAdminRows() {
+  const config = CATALOGOS_ADMIN[catalogoAdminActual];
+  if (!config) return;
+
+  const factor = catalogoAdminOrden === 'desc' ? -1 : 1;
+
+  catalogoAdminRows.sort((a, b) => {
+    const valorA = String(a[config.sortField] ?? '');
+    const valorB = String(b[config.sortField] ?? '');
+
+    return valorA.localeCompare(valorB, undefined, {
+      numeric: true,
+      sensitivity: 'base'
+    }) * factor;
+  });
 }
 
 function renderFilasCatalogoAdmin(filtro = '') {
