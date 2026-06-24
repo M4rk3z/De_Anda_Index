@@ -1533,3 +1533,84 @@ Boton de cerrar sesion
     grid-template-columns: 1fr;
   }
 }
+.catalog-admin-card {
+  display: grid;
+  gap: 14px;
+}
+
+.catalog-admin-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) minmax(260px, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.catalog-admin-toolbar button,
+.catalog-admin-new-grid > button,
+.catalog-admin-actions button {
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.catalog-admin-new {
+  padding: 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.catalog-admin-new-header h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+.catalog-admin-new-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(170px, 1fr)) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.catalog-admin-table {
+  min-width: 900px;
+}
+
+.catalog-admin-table th,
+.catalog-admin-table td {
+  min-width: 170px;
+}
+
+.catalog-admin-table th:last-child,
+.catalog-admin-table td:last-child {
+  min-width: 180px;
+}
+
+.catalog-admin-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.catalog-admin-actions .danger-button {
+  background: #b91c1c;
+}
+
+@media (max-width: 1000px) {
+  .catalog-admin-toolbar,
+  .catalog-admin-new-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .catalog-admin-toolbar,
+  .catalog-admin-new-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,5 +1,58 @@
 let editorMaestroRows = [];
 
+const CATALOGOS_ADMIN = {
+  'DT_Grupos': {
+    label: 'DT_Grupos',
+    keys: ['Grupo', 'ID'],
+    fields: [
+      { name: 'Grupo', label: 'Grupo' },
+      { name: 'ID', label: 'ID' }
+    ]
+  },
+  'MP:MateriaPrima': {
+    label: 'MP:MateriaPrima',
+    keys: ['Grupo', 'Familia', 'IdFamilia'],
+    fields: [
+      { name: 'Grupo', label: 'Grupo' },
+      { name: 'Familia', label: 'Familia' },
+      { name: 'IdFamilia', label: 'Id Familia' }
+    ]
+  },
+  'MP:Materiales': {
+    label: 'MP:Materiales',
+    keys: ['Grupo', 'Material', 'Id_Material'],
+    fields: [
+      { name: 'Grupo', label: 'Grupo' },
+      { name: 'Material', label: 'Material' },
+      { name: 'Id_Material', label: 'Id Material' },
+      { name: 'Nomenclatura', label: 'Nomenclatura' }
+    ]
+  },
+  'MP:Tipos': {
+    label: 'MP:Tipos',
+    keys: ['id_Keys'],
+    fields: [
+      { name: 'id_Keys', label: 'ID Key', readonly: true },
+      { name: 'Familia', label: 'Familia' },
+      { name: 'Tipo', label: 'Tipo' },
+      { name: 'Id', label: 'ID' }
+    ]
+  },
+  'PT:Tipos': {
+    label: 'PT:Tipos',
+    keys: ['Registro_Id'],
+    fields: [
+      { name: 'Registro_Id', label: 'Registro ID', readonly: true },
+      { name: 'Clave', label: 'Clave' },
+      { name: 'Tipos', label: 'Tipo' },
+      { name: 'Id', label: 'ID' }
+    ]
+  }
+};
+
+let catalogoAdminActual = 'DT_Grupos';
+let catalogoAdminRows = [];
+
 function renderPanelControl() {
   const viewer = document.getElementById('viewer');
   if (!viewer) return;
@@ -20,6 +73,7 @@ function renderPanelControl() {
         <div class="panel-actions">
           <button onclick="renderEditorMaestro()">Editor Maestro</button>
           ${usuarioPuede(0) ? '<button onclick="renderControlAccesos()">Control de Accesos</button>' : ''}
+          ${usuarioPuede(0) ? '<button onclick="renderAdministrarCatalogos()">Administrar Catalogos</button>' : ''}
         </div>
 
         <div id="panelControlContenido" class="panel-control-content">
@@ -625,4 +679,324 @@ async function eliminarUsuarioAcceso(index) {
 
   await cargarUsuariosAcceso();
   if (status) status.textContent = 'Usuario eliminado correctamente.';
+}
+
+function renderAdministrarCatalogos() {
+  if (!usuarioPuede(0)) {
+    mostrarAccesoDenegado();
+    return;
+  }
+
+  const contenedor = document.getElementById('panelControlContenido');
+  if (!contenedor) return;
+
+  contenedor.innerHTML = `
+    <div class="control-card catalog-admin-card">
+      <div class="catalog-header">
+        <h2>Administrar Catalogos</h2>
+        <p>Edita los catalogos utilizados para construir codigos.</p>
+      </div>
+
+      <div class="catalog-admin-toolbar">
+        <div class="field-block">
+          <label for="catalogoAdminSelect">Tabla</label>
+          <select id="catalogoAdminSelect" onchange="seleccionarCatalogoAdmin(this.value)">
+            ${Object.entries(CATALOGOS_ADMIN).map(([tabla, config]) => `
+              <option value="${escapeHtml(tabla)}" ${tabla === catalogoAdminActual ? 'selected' : ''}>
+                ${escapeHtml(config.label)}
+              </option>
+            `).join('')}
+          </select>
+        </div>
+
+        <div class="field-block catalog-admin-search">
+          <label for="catalogoAdminFiltro">Buscar en la tabla</label>
+          <input
+            id="catalogoAdminFiltro"
+            type="search"
+            placeholder="Filtrar registros"
+            oninput="renderFilasCatalogoAdmin(this.value)"
+          >
+        </div>
+
+        <button type="button" onclick="cargarCatalogoAdmin()">Actualizar</button>
+      </div>
+
+      <div id="catalogoAdminNuevo" class="catalog-admin-new"></div>
+      <div id="catalogoAdminStatus" class="status-box">Cargando catalogo...</div>
+
+      <div class="table-scroll">
+        <table class="catalog-table catalog-admin-table">
+          <thead id="catalogoAdminHead"></thead>
+          <tbody id="catalogoAdminBody"></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  renderFormularioNuevoCatalogo();
+  cargarCatalogoAdmin();
+}
+
+function seleccionarCatalogoAdmin(tabla) {
+  if (!usuarioPuede(0) || !CATALOGOS_ADMIN[tabla]) return;
+
+  catalogoAdminActual = tabla;
+  catalogoAdminRows = [];
+
+  const filtro = document.getElementById('catalogoAdminFiltro');
+  if (filtro) filtro.value = '';
+
+  renderFormularioNuevoCatalogo();
+  cargarCatalogoAdmin();
+}
+
+function renderFormularioNuevoCatalogo() {
+  const contenedor = document.getElementById('catalogoAdminNuevo');
+  const config = CATALOGOS_ADMIN[catalogoAdminActual];
+  if (!contenedor || !config) return;
+
+  const fields = config.fields.filter(field => !field.readonly);
+
+  contenedor.innerHTML = `
+    <div class="catalog-admin-new-header">
+      <h3>Agregar registro</h3>
+    </div>
+    <div class="catalog-admin-new-grid">
+      ${fields.map((field, index) => `
+        <div class="field-block">
+          <label for="catalogoNuevo-${index}">${escapeHtml(field.label)}</label>
+          <input id="catalogoNuevo-${index}" type="text" autocomplete="off">
+        </div>
+      `).join('')}
+      <button type="button" onclick="agregarRegistroCatalogo()">Agregar</button>
+    </div>
+  `;
+}
+
+async function cargarCatalogoAdmin() {
+  if (!usuarioPuede(0)) {
+    mostrarAccesoDenegado();
+    return;
+  }
+
+  const status = document.getElementById('catalogoAdminStatus');
+  const config = CATALOGOS_ADMIN[catalogoAdminActual];
+  if (!status || !config) return;
+
+  status.textContent = `Cargando ${config.label}...`;
+
+  const { data, error } = await supabaseClient
+    .from(catalogoAdminActual)
+    .select('*')
+    .order(config.fields.find(field => !field.readonly)?.name || config.fields[0].name, {
+      ascending: true
+    })
+    .limit(1000);
+
+  if (error) {
+    catalogoAdminRows = [];
+    status.textContent = `Error al cargar ${config.label}: ${error.message}`;
+    renderFilasCatalogoAdmin();
+    return;
+  }
+
+  catalogoAdminRows = data || [];
+  status.textContent = `Registros cargados: ${catalogoAdminRows.length}`;
+  renderFilasCatalogoAdmin();
+}
+
+function renderFilasCatalogoAdmin(filtro = '') {
+  const head = document.getElementById('catalogoAdminHead');
+  const body = document.getElementById('catalogoAdminBody');
+  const config = CATALOGOS_ADMIN[catalogoAdminActual];
+  if (!head || !body || !config) return;
+
+  const filtroNormalizado = normalizarTextoFlexible(filtro);
+  const rows = catalogoAdminRows
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => {
+      if (!filtroNormalizado) return true;
+
+      return config.fields.some(field => (
+        normalizarTextoFlexible(row[field.name]).includes(filtroNormalizado)
+      ));
+    });
+
+  head.innerHTML = `
+    <tr>
+      ${config.fields.map(field => `<th>${escapeHtml(field.label)}</th>`).join('')}
+      <th>Acciones</th>
+    </tr>
+  `;
+
+  if (rows.length === 0) {
+    body.innerHTML = `
+      <tr>
+        <td colspan="${config.fields.length + 1}">No hay registros para mostrar.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  body.innerHTML = rows.map(({ row, index }) => `
+    <tr>
+      ${config.fields.map((field, fieldIndex) => `
+        <td>
+          <input
+            id="catalogo-${index}-${fieldIndex}"
+            class="master-input"
+            type="text"
+            value="${escapeHtml(row[field.name] ?? '')}"
+            ${field.readonly ? 'disabled' : ''}
+          >
+        </td>
+      `).join('')}
+      <td>
+        <div class="catalog-admin-actions">
+          <button type="button" onclick="guardarRegistroCatalogo(${index})">Guardar</button>
+          <button type="button" class="danger-button" onclick="eliminarRegistroCatalogo(${index})">
+            Eliminar
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function agregarRegistroCatalogo() {
+  if (!usuarioPuede(0)) {
+    mostrarAccesoDenegado();
+    return;
+  }
+
+  const config = CATALOGOS_ADMIN[catalogoAdminActual];
+  const status = document.getElementById('catalogoAdminStatus');
+  const fields = config?.fields.filter(field => !field.readonly) || [];
+  if (!config || !status) return;
+
+  const payload = {};
+
+  for (let index = 0; index < fields.length; index += 1) {
+    const value = document.getElementById(`catalogoNuevo-${index}`)?.value.trim() || '';
+
+    if (!value) {
+      status.textContent = `Completa el campo ${fields[index].label}.`;
+      return;
+    }
+
+    payload[fields[index].name] = value;
+  }
+
+  status.textContent = 'Agregando registro...';
+
+  const { error } = await supabaseClient
+    .from(catalogoAdminActual)
+    .insert(payload);
+
+  if (error) {
+    status.textContent = 'Error al agregar: ' + error.message;
+    return;
+  }
+
+  fields.forEach((field, index) => {
+    const input = document.getElementById(`catalogoNuevo-${index}`);
+    if (input) input.value = '';
+  });
+
+  await cargarCatalogoAdmin();
+  status.textContent = 'Registro agregado correctamente.';
+}
+
+async function guardarRegistroCatalogo(index) {
+  if (!usuarioPuede(0)) {
+    mostrarAccesoDenegado();
+    return;
+  }
+
+  const config = CATALOGOS_ADMIN[catalogoAdminActual];
+  const row = catalogoAdminRows[index];
+  const status = document.getElementById('catalogoAdminStatus');
+  if (!config || !row || !status) return;
+
+  const payload = {};
+
+  for (let fieldIndex = 0; fieldIndex < config.fields.length; fieldIndex += 1) {
+    const field = config.fields[fieldIndex];
+    if (field.readonly) continue;
+
+    const value = document.getElementById(`catalogo-${index}-${fieldIndex}`)?.value.trim() || '';
+
+    if (!value) {
+      status.textContent = `El campo ${field.label} no puede quedar vacio.`;
+      return;
+    }
+
+    payload[field.name] = value;
+  }
+
+  status.textContent = 'Guardando cambios...';
+
+  let query = supabaseClient
+    .from(catalogoAdminActual)
+    .update(payload);
+
+  query = aplicarIdentificadorCatalogo(query, config, row);
+  const { error } = await query;
+
+  if (error) {
+    status.textContent = 'Error al guardar: ' + error.message;
+    return;
+  }
+
+  await cargarCatalogoAdmin();
+  status.textContent = 'Registro actualizado correctamente.';
+}
+
+async function eliminarRegistroCatalogo(index) {
+  if (!usuarioPuede(0)) {
+    mostrarAccesoDenegado();
+    return;
+  }
+
+  const config = CATALOGOS_ADMIN[catalogoAdminActual];
+  const row = catalogoAdminRows[index];
+  const status = document.getElementById('catalogoAdminStatus');
+  if (!config || !row || !status) return;
+
+  if (!window.confirm(`Se eliminara este registro de ${config.label}. Esta accion no se puede deshacer.`)) {
+    return;
+  }
+
+  status.textContent = 'Eliminando registro...';
+
+  let query = supabaseClient
+    .from(catalogoAdminActual)
+    .delete();
+
+  query = aplicarIdentificadorCatalogo(query, config, row);
+  const { error } = await query;
+
+  if (error) {
+    status.textContent = 'Error al eliminar: ' + error.message;
+    return;
+  }
+
+  await cargarCatalogoAdmin();
+  status.textContent = 'Registro eliminado correctamente.';
+}
+
+function aplicarIdentificadorCatalogo(query, config, row) {
+  const keysDisponibles = config.keys.every(key => row[key] !== null && row[key] !== undefined);
+  const keys = keysDisponibles
+    ? config.keys
+    : config.fields.filter(field => !field.readonly).map(field => field.name);
+
+  keys.forEach(key => {
+    query = row[key] === null
+      ? query.is(key, null)
+      : query.eq(key, row[key]);
+  });
+
+  return query;
 }
