@@ -33,10 +33,10 @@ const CATALOGOS_ADMIN = {
   },
   'MP:Tipos': {
     label: 'MP:Tipos',
-    sortField: 'id_Keys',
+    sortField: 'Id',
     keys: ['id_Keys'],
     fields: [
-      { name: 'id_Keys', label: 'ID Key', readonly: true },
+      { name: 'id_Keys', label: 'ID Key', readonly: true, hidden: true },
       { name: 'Familia', label: 'Familia' },
       { name: 'Tipo', label: 'Tipo' },
       { name: 'Id', label: 'ID' }
@@ -44,7 +44,7 @@ const CATALOGOS_ADMIN = {
   },
   'PT:Tipos': {
     label: 'PT:Tipos',
-    sortField: 'Registro_Id',
+    sortField: 'Id',
     keys: ['Registro_Id'],
     fields: [
       { name: 'Registro_Id', label: 'Registro ID', readonly: true },
@@ -696,6 +696,8 @@ function renderAdministrarCatalogos() {
   const contenedor = document.getElementById('panelControlContenido');
   if (!contenedor) return;
 
+  catalogoAdminOrden = 'asc';
+
   contenedor.innerHTML = `
     <div class="control-card catalog-admin-card">
       <div class="catalog-header">
@@ -761,6 +763,7 @@ function seleccionarCatalogoAdmin(tabla) {
 
   catalogoAdminActual = tabla;
   catalogoAdminRows = [];
+  catalogoAdminOrden = 'asc';
 
   const filtro = document.getElementById('catalogoAdminFiltro');
   if (filtro) filtro.value = '';
@@ -818,7 +821,7 @@ async function cargarCatalogoAdmin() {
     .from(catalogoAdminActual)
     .select('*')
     .order(config.sortField, {
-      ascending: true
+      ascending: catalogoAdminOrden === 'asc'
     })
     .limit(1000);
 
@@ -858,6 +861,10 @@ function renderFilasCatalogoAdmin(filtro = '') {
   const config = CATALOGOS_ADMIN[catalogoAdminActual];
   if (!head || !body || !config) return;
 
+  const visibleFields = config.fields
+    .map((field, fieldIndex) => ({ field, fieldIndex }))
+    .filter(({ field }) => !field.hidden);
+
   const filtroNormalizado = normalizarTextoFlexible(filtro);
   const rows = catalogoAdminRows
     .map((row, index) => ({ row, index }))
@@ -871,7 +878,7 @@ function renderFilasCatalogoAdmin(filtro = '') {
 
   head.innerHTML = `
     <tr>
-      ${config.fields.map(field => `<th>${escapeHtml(field.label)}</th>`).join('')}
+      ${visibleFields.map(({ field }) => `<th>${escapeHtml(field.label)}</th>`).join('')}
       <th>Acciones</th>
     </tr>
   `;
@@ -879,7 +886,7 @@ function renderFilasCatalogoAdmin(filtro = '') {
   if (rows.length === 0) {
     body.innerHTML = `
       <tr>
-        <td colspan="${config.fields.length + 1}">No hay registros para mostrar.</td>
+        <td colspan="${visibleFields.length + 1}">No hay registros para mostrar.</td>
       </tr>
     `;
     return;
@@ -887,7 +894,7 @@ function renderFilasCatalogoAdmin(filtro = '') {
 
   body.innerHTML = rows.map(({ row, index }) => `
     <tr>
-      ${config.fields.map((field, fieldIndex) => `
+      ${visibleFields.map(({ field, fieldIndex }) => `
         <td>
           <input
             id="catalogo-${index}-${fieldIndex}"
