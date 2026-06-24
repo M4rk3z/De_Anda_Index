@@ -47,7 +47,7 @@ const CATALOGOS_ADMIN = {
     sortField: 'Id',
     keys: ['Registro_Id'],
     fields: [
-      { name: 'Registro_Id', label: 'Registro ID', readonly: true },
+      { name: 'Registro_Id', label: 'Registro ID', readonly: true, hidden: true },
       { name: 'Clave', label: 'Clave' },
       { name: 'Tipos', label: 'Tipo' },
       { name: 'Id', label: 'ID' }
