@@ -18,6 +18,11 @@ let nuevoCodigoState = {
   nomenclaturaMaterial: ''
 };
 
+function esValorCatalogoValido(value) {
+  const texto = String(value ?? '').trim().toLowerCase();
+  return texto !== '' && texto !== 'null' && texto !== 'undefined';
+}
+
 /*************************************************
  * RENDER PRINCIPAL
  *************************************************/
@@ -154,7 +159,11 @@ async function cargarGruposNuevoCodigo() {
     return;
   }
 
-  if (!data || data.length === 0) {
+  const gruposValidos = (data || []).filter(row => (
+    esValorCatalogoValido(row.Grupo) && esValorCatalogoValido(row.ID)
+  ));
+
+  if (gruposValidos.length === 0) {
     grupoSelect.innerHTML = `<option value="">No hay grupos registrados</option>`;
     setNuevoCodigoStatus('No se encontraron grupos en DT_Grupos.');
     return;
@@ -162,7 +171,7 @@ async function cargarGruposNuevoCodigo() {
 
   grupoSelect.innerHTML = `<option value="">Selecciona un grupo</option>`;
 
-  data.forEach(row => {
+  gruposValidos.forEach(row => {
     const option = document.createElement('option');
 
     option.value = row.Grupo;
@@ -237,7 +246,9 @@ async function cargarFamiliasNuevoCodigo(grupoNombre) {
 
   const familiasFiltradas = (data || []).filter(row => {
     const familia = String(row.Familia || '').trim().toUpperCase();
-    return !familia.includes('LIBRE');
+    return esValorCatalogoValido(row.Familia)
+      && esValorCatalogoValido(row.IdFamilia)
+      && !familia.includes('LIBRE');
   });
 
   if (familiasFiltradas.length === 0) {
@@ -414,6 +425,12 @@ async function detectarTipoPorDescripcion() {
   const descripcionNormalizada = normalizarTextoNuevoCodigo(descripcion);
 
   const coincidencias = (data || []).filter(row => {
+    if (!esValorCatalogoValido(row.Clave)
+      || !esValorCatalogoValido(row.Tipos)
+      || !esValorCatalogoValido(row.Id)) {
+      return false;
+    }
+
     const clave = normalizarTextoNuevoCodigo(row.Clave);
 
     if (!clave) return false;
@@ -1002,7 +1019,11 @@ async function cargarTiposMPNuevoCodigo(familiaNombre) {
     return;
   }
 
-  if (!data || data.length === 0) {
+  const tiposValidos = (data || []).filter(row => (
+    esValorCatalogoValido(row.Tipo) && esValorCatalogoValido(row.Id)
+  ));
+
+  if (tiposValidos.length === 0) {
     tipoSelect.innerHTML = `
       <option value="">No hay tipos para esta familia</option>
     `;
@@ -1015,7 +1036,7 @@ async function cargarTiposMPNuevoCodigo(familiaNombre) {
     <option value="">Selecciona un tipo</option>
   `;
 
-  data.forEach(row => {
+  tiposValidos.forEach(row => {
     const option = document.createElement('option');
 
     option.value = row.Tipo;
@@ -1056,7 +1077,11 @@ async function cargarMaterialesNuevoCodigo(grupoNombre) {
     return;
   }
 
-  if (!data || data.length === 0) {
+  const materialesValidos = (data || []).filter(row => (
+    esValorCatalogoValido(row.Material) && esValorCatalogoValido(row.Id_Material)
+  ));
+
+  if (materialesValidos.length === 0) {
     materialSelect.innerHTML = `<option value="">No hay materiales para este grupo</option>`;
     setNuevoCodigoStatus('No se encontraron materiales para el grupo seleccionado.');
     return;
@@ -1064,7 +1089,7 @@ async function cargarMaterialesNuevoCodigo(grupoNombre) {
 
   materialSelect.innerHTML = `<option value="">Selecciona un material</option>`;
 
-  data.forEach(row => {
+  materialesValidos.forEach(row => {
     const option = document.createElement('option');
 
     option.value = row.Material;
