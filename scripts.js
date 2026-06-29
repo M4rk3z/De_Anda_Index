@@ -65,6 +65,17 @@ function showSection(section) {
     return;
   }
 
+  document.querySelectorAll('#sideMenu [data-section]').forEach(button => {
+    const isActive = button.dataset.section === section;
+    button.classList.toggle('active', isActive);
+
+    if (isActive) {
+      button.setAttribute('aria-current', 'page');
+    } else {
+      button.removeAttribute('aria-current');
+    }
+  });
+
   if (section === 'bienvenida') {
     const usuarioActivo = localStorage.getItem('usuarioActivo') || 'Usuario';
 
