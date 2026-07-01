@@ -402,9 +402,9 @@ function asignarValorSolicitud(id, valor) {
   if (!control) return;
 
   if (control.tagName === 'SELECT' && valor != null) {
-    const valorNormalizado = String(valor).trim().toUpperCase();
+    const valorNormalizado = normalizarTextoFlexible(valor);
     const option = Array.from(control.options).find(item => (
-      String(item.value).trim().toUpperCase() === valorNormalizado
+      normalizarTextoFlexible(item.value) === valorNormalizado
     ));
 
     control.value = option?.value || '';
@@ -486,8 +486,12 @@ function restaurarSeleccionSolicitud(selectId, valor, onSelected) {
   const select = document.getElementById(selectId);
   if (!select || !valor) return;
 
-  select.value = valor;
-  const option = select.options[select.selectedIndex];
+  const valorNormalizado = normalizarTextoFlexible(valor);
+  const option = Array.from(select.options).find(item => (
+    normalizarTextoFlexible(item.value) === valorNormalizado
+  ));
+
+  select.value = option?.value || '';
   if (option && option.value) onSelected(option);
 }
 
@@ -497,11 +501,14 @@ async function restaurarTipoPTSolicitud(tipo) {
   const { data } = await supabaseClient
     .from('PT:Tipos')
     .select('"Clave","Tipos","Id"')
-    .eq('Tipos', tipo)
-    .limit(1)
-    .maybeSingle();
+    .order('Id', { ascending: true });
 
-  if (data) seleccionarTipoDetectado(data);
+  const tipoNormalizado = normalizarTextoFlexible(tipo);
+  const coincidencia = (data || []).find(row => (
+    normalizarTextoFlexible(row.Tipos) === tipoNormalizado
+  ));
+
+  if (coincidencia) seleccionarTipoDetectado(coincidencia);
 }
 
 window.guardarSeguimientoSolicitud = async function guardarSeguimientoSolicitud() {

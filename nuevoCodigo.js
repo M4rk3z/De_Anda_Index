@@ -728,10 +728,10 @@ async function validarDescripcionUsadaNuevoCodigo(descripcion) {
     construirDescripcionSAPNuevoCodigo(descripcion)
   );
 
-  const { data, error } = await supabaseClient
-    .from(TABLA_CODIGOS)
-    .select(`"${COLUMNA_DESCRIPCION_1}", "${COLUMNA_DESCRIPCION_2}"`)
-    .limit(5000);
+  const { data, error } = await leerSupabasePaginado(
+    TABLA_CODIGOS,
+    `"${COLUMNA_DESCRIPCION_1}", "${COLUMNA_DESCRIPCION_2}"`
+  );
 
   if (error) {
     setNuevoCodigoStatus('Error al validar descripcion: ' + error.message);
@@ -1227,6 +1227,7 @@ function normalizarTextoNuevoCodigo(texto) {
   return String(texto || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]/g, '')
     .trim()
     .toUpperCase();
 }

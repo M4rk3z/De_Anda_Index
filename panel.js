@@ -166,18 +166,33 @@ async function buscarEditorMaestro() {
 
   statusBox.textContent = 'Buscando...';
 
-  let consulta = supabaseClient
-    .from('BD_General')
-    .select('"Id","Codigo Pixvs","Nombre Pixvs","Codigo SAP","Nombre SAP","Version SAP","Revision SAP","Status","Fecha de ultimo Cambio","Responsable"')
-    .limit(25);
+  const columnas = '"Id","Codigo Pixvs","Nombre Pixvs","Codigo SAP","Nombre SAP","Version SAP","Revision SAP","Status","Fecha de ultimo Cambio","Responsable"';
+  let data = [];
+  let error = null;
 
   if (busqueda) {
-    consulta = consulta.or(
-      `"Codigo Pixvs".ilike.%${busqueda}%,"Nombre Pixvs".ilike.%${busqueda}%,"Codigo SAP".ilike.%${busqueda}%,"Nombre SAP".ilike.%${busqueda}%`
+    const resultado = await leerSupabasePaginado(
+      'BD_General',
+      columnas,
+      'Codigo SAP'
     );
-  }
 
-  const { data, error } = await consulta;
+    error = resultado.error;
+    data = filtrarRegistrosNormalizados(
+      resultado.data,
+      busqueda,
+      ['Codigo Pixvs', 'Nombre Pixvs', 'Codigo SAP', 'Nombre SAP']
+    ).slice(0, 25);
+  } else {
+    const resultado = await supabaseClient
+      .from('BD_General')
+      .select(columnas)
+      .order('Codigo SAP', { ascending: true })
+      .limit(25);
+
+    data = resultado.data || [];
+    error = resultado.error;
+  }
 
   if (error) {
     console.error('Error Supabase:', error);
@@ -185,7 +200,7 @@ async function buscarEditorMaestro() {
     return;
   }
 
-  renderResultadosEditorMaestro(data || []);
+  renderResultadosEditorMaestro(data);
 
   statusBox.textContent = data.length
     ? `Registros encontrados: ${data.length}`

@@ -195,14 +195,18 @@ async function buscarMateriaPrima() {
 
   status.textContent = 'Buscando...';
 
-  const filtro = `"Codigo Pixvs".ilike.%${query}%,"Nombre Pixvs".ilike.%${query}%,"Codigo SAP".ilike.%${query}%,"Nombre SAP".ilike.%${query}%`;
+  const columnasBusqueda = [
+    'Codigo Pixvs',
+    'Nombre Pixvs',
+    'Codigo SAP',
+    'Nombre SAP'
+  ];
 
-  const { data, error } = await supabaseClient
-    .from('BD_General')
-    .select('"Codigo Pixvs","Nombre Pixvs","Codigo SAP","Nombre SAP","Version SAP","Revision SAP","Status","Fecha de ultimo Cambio","Responsable"')
-    .or(filtro)
-    .order('Codigo SAP', { ascending: true })
-    .limit(1000);
+  const { data, error } = await leerSupabasePaginado(
+    'BD_General',
+    '"Codigo Pixvs","Nombre Pixvs","Codigo SAP","Nombre SAP","Version SAP","Revision SAP","Status","Fecha de ultimo Cambio","Responsable"',
+    'Codigo SAP'
+  );
 
   if (error) {
     status.textContent = 'Error al buscar en Supabase.';
@@ -216,7 +220,13 @@ async function buscarMateriaPrima() {
     return;
   }
 
-  if (!data || data.length === 0) {
+  const resultados = filtrarRegistrosNormalizados(
+    data,
+    query,
+    columnasBusqueda
+  ).slice(0, 1000);
+
+  if (resultados.length === 0) {
     status.textContent = 'No se encontraron resultados.';
 
     tbody.innerHTML = `
@@ -228,9 +238,9 @@ async function buscarMateriaPrima() {
     return;
   }
 
-  status.textContent = `Resultados encontrados: ${data.length}`;
+  status.textContent = `Resultados encontrados: ${resultados.length}`;
 
-  tbody.innerHTML = data.map(item => `
+  tbody.innerHTML = resultados.map(item => `
     <tr>
       <td>${escapeHtml(item['Codigo Pixvs'])}</td>
       <td>${escapeHtml(item['Nombre Pixvs'])}</td>
@@ -344,4 +354,56 @@ function normalizarTextoFlexible(texto) {
     .replace(/[^a-zA-Z0-9]/g, '')
     .trim()
     .toUpperCase();
+}
+
+function filtrarRegistrosNormalizados(rows, busqueda, columnas) {
+  const busquedaNormalizada = normalizarTextoFlexible(busqueda);
+  if (!busquedaNormalizada) return [];
+
+  return (rows || []).filter(row => (
+    columnas.some(columna => (
+      normalizarTextoFlexible(row[columna]).includes(busquedaNormalizada)
+    ))
+  ));
+}
+
+async function leerSupabasePaginado(
+  tabla,
+  columnas = '*',
+  columnaOrden = '',
+  ascendente = true
+) {
+  const limitePagina = 1000;
+  const registros = [];
+  let inicio = 0;
+
+  while (true) {
+    let consulta = supabaseClient
+      .from(tabla)
+      .select(columnas);
+
+    if (columnaOrden) {
+      consulta = consulta.order(columnaOrden, { ascending: ascendente });
+    }
+
+    const { data, error } = await consulta.range(
+      inicio,
+      inicio + limitePagina - 1
+    );
+
+    if (error) {
+      return { data: [], error };
+    }
+
+    const pagina = data || [];
+    registros.push(...pagina);
+
+    if (pagina.length < limitePagina) {
+      break;
+    }
+
+    inicio += limitePagina;
+  }
+
+  return { data: registros, error: null };
 }
