@@ -797,7 +797,7 @@ async function guardarNuevoCodigoMateriaPrima() {
     return;
   }
 
-  setNuevoCodigoStatus('Guardando en BD_General...');
+  setNuevoCodigoLoading();
 
   const responsable = localStorage.getItem('usuarioActivo') || 'Usuario';
 
@@ -822,7 +822,7 @@ async function guardarNuevoCodigoMateriaPrima() {
     return;
   }
 
-  setNuevoCodigoStatus('Codigo guardado correctamente en BD_General.');
+  setNuevoCodigoStatus('Se genero correctamente.');
 }
 
 function construirDescripcionSAPNuevoCodigo(descripcion) {
@@ -1319,8 +1319,22 @@ function setNuevoCodigoStatus(message) {
   const status = document.getElementById('nuevoCodigoStatus');
 
   if (status) {
+    status.classList.remove('status-box-loading');
     status.textContent = message;
   }
+}
+
+function setNuevoCodigoLoading() {
+  const status = document.getElementById('nuevoCodigoStatus');
+  if (!status) return;
+
+  status.classList.add('status-box-loading');
+  status.innerHTML = `
+    <span class="status-loading-label">Generando...</span>
+    <span class="status-loading-track" aria-hidden="true">
+      <span class="status-loading-bar"></span>
+    </span>
+  `;
 }
 
 function normalizarTextoNuevoCodigo(texto) {
