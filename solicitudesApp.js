@@ -37,7 +37,7 @@ window.renderSolicitudes = function renderSolicitudes() {
   const viewer = document.getElementById('viewer');
   if (!viewer) return;
 
-  if (!usuarioPuede(0, 1, 2)) {
+  if (!puedeAccederSeccion('solicitudes')) {
     mostrarAccesoDenegado();
     return;
   }

@@ -16,10 +16,29 @@ const ACCESOS_POR_SECCION = {
 
 function obtenerNivelUsuario() {
   const valor = localStorage.getItem('usuarioNivel');
-  if (valor === null || valor === '') return null;
+  return normalizarNivelUsuario(valor);
+}
 
-  const nivel = Number(valor);
-  return [0, 1, 2].includes(nivel) ? nivel : null;
+function normalizarNivelUsuario(valor) {
+  if (valor === null || valor === undefined || valor === '') return null;
+
+  const texto = String(valor).trim();
+  const coincidenciaNumerica = texto.match(/(?:^|\D)([012])(?:\D|$)/);
+
+  if (coincidenciaNumerica) {
+    return Number(coincidenciaNumerica[1]);
+  }
+
+  const etiqueta = texto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+
+  if (etiqueta.includes('CONTROL TOTAL')) return 0;
+  if (etiqueta.includes('ADMINISTRADOR') || etiqueta === 'ADMIN') return 1;
+  if (etiqueta.includes('USUARIO') || etiqueta.includes('OPERADOR')) return 2;
+
+  return null;
 }
 
 function usuarioPuede(...niveles) {

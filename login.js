@@ -42,7 +42,15 @@ async function login(event) {
     localStorage.setItem('sesionActiva', 'true');
     localStorage.setItem('usuarioActivo', data.User_Nombre);
     localStorage.setItem('usuarioId', data.id);
-    localStorage.setItem('usuarioNivel', String(data.Nivel ?? ''));
+    const nivelNormalizado = normalizarNivelUsuario(data.Nivel);
+
+    if (nivelNormalizado === null) {
+      status.textContent = 'El usuario no tiene un nivel de acceso valido.';
+      status.style.color = '#b91c1c';
+      return;
+    }
+
+    localStorage.setItem('usuarioNivel', String(nivelNormalizado));
 
     entrarAlSistema();
   } catch (error) {
