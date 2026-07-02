@@ -4,6 +4,11 @@ let solicitudActualData = null;
 let solicitudCambioPadre = null;
 let solicitudesListadoRows = [];
 
+function puedeDarSeguimientoSolicitudes() {
+  const nivel = normalizarNivelUsuario(localStorage.getItem('usuarioNivel'));
+  return nivel === 0 || nivel === 1;
+}
+
 const SOLICITUD_UNIDADES_MEDIDA = [
   ['PZA', 'PZA - Pieza'],
   ['KG', 'KG - Kilogramo'],
@@ -37,13 +42,7 @@ window.renderSolicitudes = function renderSolicitudes() {
   const viewer = document.getElementById('viewer');
   if (!viewer) return;
 
-  if (!puedeAccederSeccion('solicitudes')) {
-    mostrarAccesoDenegado();
-    return;
-  }
-
   const puedeCrear = usuarioPuede(0, 2);
-  const puedeSeguimiento = usuarioPuede(0, 1);
 
   viewer.innerHTML = `
     <div class="catalog-wrapper solicitudes-wrapper">
@@ -99,7 +98,7 @@ async function cargarSolicitudes() {
   const status = document.getElementById('solicitudesStatus');
   const tbody = document.getElementById('solicitudesResultados');
   const filtroStatus = document.getElementById('solicitudesFiltroStatus')?.value || '';
-  const puedeSeguimiento = usuarioPuede(0, 1);
+  const puedeSeguimiento = puedeDarSeguimientoSolicitudes();
   const puedeSolicitarCambio = usuarioPuede(0, 2);
   const columnas = 6;
 
@@ -276,7 +275,7 @@ window.abrirSolicitud = async function abrirSolicitud(id) {
   const viewer = document.getElementById('viewer');
   if (!viewer || !supabaseClient) return;
 
-  if (!usuarioPuede(0, 1)) {
+  if (!puedeDarSeguimientoSolicitudes()) {
     mostrarAccesoDenegado();
     return;
   }
@@ -514,7 +513,7 @@ async function restaurarTipoPTSolicitud(tipo) {
 }
 
 window.guardarSeguimientoSolicitud = async function guardarSeguimientoSolicitud() {
-  if (!usuarioPuede(0, 1)) {
+  if (!puedeDarSeguimientoSolicitudes()) {
     mostrarAccesoDenegado();
     return;
   }
@@ -610,7 +609,7 @@ window.guardarSeguimientoSolicitud = async function guardarSeguimientoSolicitud(
 };
 
 window.cambiarStatusSolicitud = async function cambiarStatusSolicitud(motivoRechazo = null) {
-  if (!usuarioPuede(0, 1)) {
+  if (!puedeDarSeguimientoSolicitudes()) {
     mostrarAccesoDenegado();
     return;
   }
@@ -744,7 +743,7 @@ window.actualizarBotonSubirSolicitud = function actualizarBotonSubirSolicitud() 
 };
 
 window.subirSolicitudBDGeneral = async function subirSolicitudBDGeneral() {
-  if (!usuarioPuede(0, 1)) {
+  if (!puedeDarSeguimientoSolicitudes()) {
     mostrarAccesoDenegado();
     return;
   }
@@ -818,7 +817,7 @@ window.subirSolicitudBDGeneral = async function subirSolicitudBDGeneral() {
 };
 
 window.descargarSolicitudPDF = async function descargarSolicitudPDF() {
-  if (!usuarioPuede(0, 1)) {
+  if (!puedeDarSeguimientoSolicitudes()) {
     mostrarAccesoDenegado();
     return;
   }
@@ -1304,7 +1303,7 @@ window.guardarSolicitudCambio = async function guardarSolicitudCambio() {
 };
 
 window.descargarSolicitudActualPDF = async function descargarSolicitudActualPDF() {
-  if (!usuarioPuede(0, 1) || !solicitudActualData) {
+  if (!puedeDarSeguimientoSolicitudes() || !solicitudActualData) {
     mostrarAccesoDenegado();
     return;
   }

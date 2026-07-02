@@ -47,6 +47,10 @@ function usuarioPuede(...niveles) {
 }
 
 function puedeAccederSeccion(section) {
+  if (section === 'solicitudes') {
+    return localStorage.getItem('sesionActiva') === 'true';
+  }
+
   const niveles = ACCESOS_POR_SECCION[section];
   return Array.isArray(niveles) && usuarioPuede(...niveles);
 }
