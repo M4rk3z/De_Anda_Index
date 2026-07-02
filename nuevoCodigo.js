@@ -18,9 +18,59 @@ let nuevoCodigoState = {
   nomenclaturaMaterial: ''
 };
 
+let nuevoCodigoRelaciones = {
+  familias: [],
+  tipos: [],
+  materiales: []
+};
+
 function esValorCatalogoValido(value) {
   const texto = String(value ?? '').trim().toLowerCase();
   return texto !== '' && texto !== 'null' && texto !== 'undefined';
+}
+
+function esNombreGrupoPT(grupoNombre) {
+  return normalizarTextoFlexible(grupoNombre).startsWith('PT');
+}
+
+function obtenerFamiliasRelacionadas(grupoNombre) {
+  const grupoNormalizado = normalizarTextoFlexible(grupoNombre);
+
+  return nuevoCodigoRelaciones.familias.filter(row => {
+    const familia = String(row.Familia || '').trim().toUpperCase();
+
+    return normalizarTextoFlexible(row.Grupo) === grupoNormalizado
+      && esValorCatalogoValido(row.Familia)
+      && esValorCatalogoValido(row.IdFamilia)
+      && !familia.includes('LIBRE');
+  });
+}
+
+function obtenerTiposRelacionados(familiaNombre) {
+  const familiaNormalizada = normalizarTextoFlexible(familiaNombre);
+
+  return nuevoCodigoRelaciones.tipos.filter(row => (
+    normalizarTextoFlexible(row.Familia) === familiaNormalizada
+    && esValorCatalogoValido(row.Tipo)
+    && esValorCatalogoValido(row.Id)
+  ));
+}
+
+function obtenerMaterialesRelacionados(grupoNombre) {
+  const grupoNormalizado = normalizarTextoFlexible(grupoNombre);
+
+  return nuevoCodigoRelaciones.materiales.filter(row => (
+    normalizarTextoFlexible(row.Grupo) === grupoNormalizado
+    && esValorCatalogoValido(row.Material)
+    && esValorCatalogoValido(row.Id_Material)
+  ));
+}
+
+function marcarOpcionSinRelacion(option, motivo = 'Sin relacion') {
+  option.disabled = true;
+  option.classList.add('option-sin-relacion');
+  option.textContent += ` - ${motivo}`;
+  option.title = motivo;
 }
 
 /*************************************************
@@ -148,10 +198,30 @@ async function cargarGruposNuevoCodigo() {
   grupoSelect.innerHTML = `<option value="">Cargando grupos...</option>`;
   grupoSelect.disabled = true;
 
-  const { data, error } = await supabaseClient
-    .from('DT_Grupos')
-    .select('"Grupo", "ID"')
-    .order('Grupo', { ascending: true });
+  const [
+    gruposResultado,
+    familiasResultado,
+    tiposResultado,
+    materialesResultado
+  ] = await Promise.all([
+    leerSupabasePaginado('DT_Grupos', '"Grupo", "ID"', 'Grupo'),
+    leerSupabasePaginado(
+      'MP:MateriaPrima',
+      '"Grupo", "Familia", "IdFamilia"',
+      'Familia'
+    ),
+    leerSupabasePaginado('MP:Tipos', '"Familia", "Tipo", "Id"', 'Tipo'),
+    leerSupabasePaginado(
+      'MP:Materiales',
+      '"Grupo", "Material", "Id_Material", "Nomenclatura"',
+      'Material'
+    )
+  ]);
+
+  const error = gruposResultado.error
+    || familiasResultado.error
+    || tiposResultado.error
+    || materialesResultado.error;
 
   if (error) {
     grupoSelect.innerHTML = `<option value="">Error al cargar grupos</option>`;
@@ -159,7 +229,13 @@ async function cargarGruposNuevoCodigo() {
     return;
   }
 
-  const gruposValidos = (data || []).filter(row => (
+  nuevoCodigoRelaciones = {
+    familias: familiasResultado.data || [],
+    tipos: tiposResultado.data || [],
+    materiales: materialesResultado.data || []
+  };
+
+  const gruposValidos = (gruposResultado.data || []).filter(row => (
     esValorCatalogoValido(row.Grupo) && esValorCatalogoValido(row.ID)
   ));
 
@@ -178,6 +254,21 @@ async function cargarGruposNuevoCodigo() {
     option.textContent = `${row.Grupo} (${row.ID})`;
     option.dataset.grupoId = row.ID;
 
+    const familias = obtenerFamiliasRelacionadas(row.Grupo);
+    const tieneFamilias = familias.length > 0;
+    const tieneCadenaMP = esNombreGrupoPT(row.Grupo) || (
+      obtenerMaterialesRelacionados(row.Grupo).length > 0
+      && familias.some(familia => (
+        obtenerTiposRelacionados(familia.Familia).length > 0
+      ))
+    );
+
+    if (!tieneFamilias) {
+      marcarOpcionSinRelacion(option, 'Sin familias');
+    } else if (!tieneCadenaMP) {
+      marcarOpcionSinRelacion(option, 'Sin relacion completa');
+    }
+
     grupoSelect.appendChild(option);
   });
 
@@ -185,7 +276,7 @@ async function cargarGruposNuevoCodigo() {
   setNuevoCodigoStatus('Selecciona un grupo para continuar.');
 }
 
-function onNuevoCodigoGrupoChange() {
+async function onNuevoCodigoGrupoChange() {
   const grupoSelect = document.getElementById('nuevoCodigoGrupo');
   const selectedOption = grupoSelect.options[grupoSelect.selectedIndex];
 
@@ -207,16 +298,34 @@ function onNuevoCodigoGrupoChange() {
   limpiarVistaPreviaNuevoCodigo();
   actualizarBotonPrincipalNuevoCodigo();
 
+  if (selectedOption?.disabled) {
+    grupoSelect.value = '';
+    nuevoCodigoState.grupoNombre = '';
+    nuevoCodigoState.grupoId = '';
+    setNuevoCodigoStatus('El grupo seleccionado no tiene relaciones disponibles.');
+    return;
+  }
+
   if (!nuevoCodigoState.grupoNombre) {
     setNuevoCodigoStatus('Selecciona un grupo para continuar.');
     return;
   }
 
   setNuevoCodigoStatus('Cargando familias...');
-  cargarFamiliasNuevoCodigo(nuevoCodigoState.grupoNombre);
+  const tieneFamilias = await cargarFamiliasNuevoCodigo(
+    nuevoCodigoState.grupoNombre
+  );
+
+  if (!tieneFamilias) {
+    limpiarMaterialesNuevoCodigo();
+    setNuevoCodigoStatus(
+      'Este grupo no tiene familias disponibles. No es posible seleccionar material.'
+    );
+    return;
+  }
 
   if (!esGrupoPTNuevoCodigo()) {
-    cargarMaterialesNuevoCodigo(nuevoCodigoState.grupoNombre);
+    await cargarMaterialesNuevoCodigo(nuevoCodigoState.grupoNombre);
   }
 }
 
@@ -232,29 +341,17 @@ async function cargarFamiliasNuevoCodigo(grupoNombre) {
   familiaSelect.innerHTML = `<option value="">Cargando familias...</option>`;
   familiaSelect.disabled = true;
 
-  const { data, error } = await supabaseClient
-    .from('MP:MateriaPrima')
-    .select('"Familia", "IdFamilia"')
-    .eq('Grupo', grupoNombre)
-    .order('Familia', { ascending: true });
-
-  if (error) {
-    familiaSelect.innerHTML = `<option value="">Error al cargar familias</option>`;
-    setNuevoCodigoStatus('Error al cargar familias: ' + error.message);
-    return;
-  }
-
-  const familiasFiltradas = (data || []).filter(row => {
-    const familia = String(row.Familia || '').trim().toUpperCase();
-    return esValorCatalogoValido(row.Familia)
-      && esValorCatalogoValido(row.IdFamilia)
-      && !familia.includes('LIBRE');
-  });
+  const familiasFiltradas = obtenerFamiliasRelacionadas(grupoNombre)
+    .sort((a, b) => String(a.Familia).localeCompare(
+      String(b.Familia),
+      'es',
+      { sensitivity: 'base', numeric: true }
+    ));
 
   if (familiasFiltradas.length === 0) {
     familiaSelect.innerHTML = `<option value="">No hay familias para este grupo</option>`;
     setNuevoCodigoStatus('No se encontraron familias disponibles para el grupo seleccionado.');
-    return;
+    return false;
   }
 
   familiaSelect.innerHTML = `<option value="">Selecciona una familia</option>`;
@@ -266,11 +363,27 @@ async function cargarFamiliasNuevoCodigo(grupoNombre) {
     option.textContent = `${row.Familia} (${row.IdFamilia})`;
     option.dataset.idFamilia = row.IdFamilia;
 
+    if (
+      !esNombreGrupoPT(grupoNombre)
+      && obtenerTiposRelacionados(row.Familia).length === 0
+    ) {
+      marcarOpcionSinRelacion(option, 'Sin tipos');
+    }
+
     familiaSelect.appendChild(option);
   });
 
-  familiaSelect.disabled = false;
-  setNuevoCodigoStatus('Selecciona una familia.');
+  const tieneFamiliasDisponibles = Array.from(familiaSelect.options)
+    .some(option => option.value && !option.disabled);
+
+  familiaSelect.disabled = !tieneFamiliasDisponibles;
+  setNuevoCodigoStatus(
+    tieneFamiliasDisponibles
+      ? 'Selecciona una familia.'
+      : 'Las familias del grupo no tienen tipos relacionados.'
+  );
+
+  return tieneFamiliasDisponibles;
 }
 
 function onNuevoCodigoFamiliaChange() {
@@ -287,6 +400,14 @@ function onNuevoCodigoFamiliaChange() {
   limpiarCodigoGeneradoNuevoCodigo();
   limpiarVistaPreviaNuevoCodigo();
   actualizarBotonPrincipalNuevoCodigo();
+
+  if (selectedOption?.disabled) {
+    familiaSelect.value = '';
+    nuevoCodigoState.familiaNombre = '';
+    nuevoCodigoState.idFamilia = '';
+    setNuevoCodigoStatus('La familia seleccionada no tiene tipos relacionados.');
+    return;
+  }
 
   if (!nuevoCodigoState.familiaNombre) {
     setNuevoCodigoStatus('Selecciona una familia.');
@@ -1004,24 +1125,12 @@ async function cargarTiposMPNuevoCodigo(familiaNombre) {
 
   tipoSelect.disabled = true;
 
-  const { data, error } = await supabaseClient
-    .from('MP:Tipos')
-    .select('"Tipo", "Id"')
-    .eq('Familia', familiaNombre)
-    .order('Tipo', { ascending: true });
-
-  if (error) {
-    tipoSelect.innerHTML = `
-      <option value="">Error al cargar tipos</option>
-    `;
-
-    setNuevoCodigoStatus('Error al cargar tipos: ' + error.message);
-    return;
-  }
-
-  const tiposValidos = (data || []).filter(row => (
-    esValorCatalogoValido(row.Tipo) && esValorCatalogoValido(row.Id)
-  ));
+  const tiposValidos = obtenerTiposRelacionados(familiaNombre)
+    .sort((a, b) => String(a.Tipo).localeCompare(
+      String(b.Tipo),
+      'es',
+      { sensitivity: 'base', numeric: true }
+    ));
 
   if (tiposValidos.length === 0) {
     tipoSelect.innerHTML = `
@@ -1065,21 +1174,12 @@ async function cargarMaterialesNuevoCodigo(grupoNombre) {
   materialSelect.innerHTML = `<option value="">Cargando materiales...</option>`;
   materialSelect.disabled = true;
 
-  const { data, error } = await supabaseClient
-    .from('MP:Materiales')
-    .select('"Material", "Id_Material", "Nomenclatura"')
-    .eq('Grupo', grupoNombre)
-    .order('Material', { ascending: true });
-
-  if (error) {
-    materialSelect.innerHTML = `<option value="">Error al cargar materiales</option>`;
-    setNuevoCodigoStatus('Error al cargar materiales: ' + error.message);
-    return;
-  }
-
-  const materialesValidos = (data || []).filter(row => (
-    esValorCatalogoValido(row.Material) && esValorCatalogoValido(row.Id_Material)
-  ));
+  const materialesValidos = obtenerMaterialesRelacionados(grupoNombre)
+    .sort((a, b) => String(a.Material).localeCompare(
+      String(b.Material),
+      'es',
+      { sensitivity: 'base', numeric: true }
+    ));
 
   if (materialesValidos.length === 0) {
     materialSelect.innerHTML = `<option value="">No hay materiales para este grupo</option>`;

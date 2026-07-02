@@ -2121,3 +2121,10 @@ button:disabled,
     width: 100%;
   }
 }
+
+select option.option-sin-relacion,
+select option.option-sin-relacion:disabled {
+  background: #fff2df;
+  color: #c35500;
+  font-weight: 700;
+}
