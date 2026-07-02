@@ -811,7 +811,7 @@ async function guardarNuevoCodigoMateriaPrima() {
         [COLUMNA_DESCRIPCION_2]: construirDescripcionSAPNuevoCodigo(descripcion),
         'Version SAP': '01',
         'Revision SAP': '01',
-        'Status': '1 - Proceso',
+        'Status': '2 - Local',
         [COLUMNA_FECHA_CAMBIO]: new Date().toISOString(),
         'Responsable': responsable
       }
