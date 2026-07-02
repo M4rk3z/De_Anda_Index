@@ -4,9 +4,16 @@ let solicitudActualData = null;
 let solicitudCambioPadre = null;
 let solicitudesListadoRows = [];
 
-function puedeDarSeguimientoSolicitudes() {
+function usuarioPuedeEnSolicitudes(...nivelesPermitidos) {
   const nivel = normalizarNivelUsuario(localStorage.getItem('usuarioNivel'));
-  return nivel === 0 || nivel === 1;
+  const nivelEfectivo = nivel === 1 ? 0 : nivel;
+
+  return nivelEfectivo !== null
+    && nivelesPermitidos.includes(nivelEfectivo);
+}
+
+function puedeDarSeguimientoSolicitudes() {
+  return usuarioPuedeEnSolicitudes(0);
 }
 
 const SOLICITUD_UNIDADES_MEDIDA = [
@@ -42,7 +49,7 @@ window.renderSolicitudes = function renderSolicitudes() {
   const viewer = document.getElementById('viewer');
   if (!viewer) return;
 
-  const puedeCrear = usuarioPuede(0, 2);
+  const puedeCrear = usuarioPuedeEnSolicitudes(0, 2);
 
   viewer.innerHTML = `
     <div class="catalog-wrapper solicitudes-wrapper">
@@ -99,7 +106,7 @@ async function cargarSolicitudes() {
   const tbody = document.getElementById('solicitudesResultados');
   const filtroStatus = document.getElementById('solicitudesFiltroStatus')?.value || '';
   const puedeSeguimiento = puedeDarSeguimientoSolicitudes();
-  const puedeSolicitarCambio = usuarioPuede(0, 2);
+  const puedeSolicitarCambio = usuarioPuedeEnSolicitudes(0, 2);
   const columnas = 6;
 
   if (!tbody) return;
@@ -858,7 +865,7 @@ window.descargarSolicitudPDF = async function descargarSolicitudPDF() {
 };
 
 window.imprimirSolicitudPDF = async function imprimirSolicitudPDF(id) {
-  if (!usuarioPuede(2)) {
+  if (!usuarioPuedeEnSolicitudes(2)) {
     mostrarAccesoDenegado();
     return;
   }
@@ -1065,7 +1072,7 @@ function esSolicitudCambio(datos) {
 }
 
 window.solicitarCambio = async function solicitarCambio(id) {
-  if (!usuarioPuede(0, 2)) {
+  if (!usuarioPuedeEnSolicitudes(0, 2)) {
     mostrarAccesoDenegado();
     return;
   }
@@ -1241,7 +1248,7 @@ function renderFormularioSolicitudCambio(padre, cambio) {
 }
 
 window.guardarSolicitudCambio = async function guardarSolicitudCambio() {
-  if (!usuarioPuede(0, 2)) {
+  if (!usuarioPuedeEnSolicitudes(0, 2)) {
     mostrarAccesoDenegado();
     return;
   }
@@ -1413,7 +1420,7 @@ window.crearSolicitud = function crearSolicitud() {
   const viewer = document.getElementById('viewer');
   if (!viewer) return;
 
-  if (!usuarioPuede(0, 2)) {
+  if (!usuarioPuedeEnSolicitudes(0, 2)) {
     mostrarAccesoDenegado();
     return;
   }
@@ -1583,7 +1590,7 @@ window.crearSolicitud = function crearSolicitud() {
 };
 
 window.agregarArticuloSolicitud = function agregarArticuloSolicitud() {
-  if (!usuarioPuede(0, 2)) {
+  if (!usuarioPuedeEnSolicitudes(0, 2)) {
     mostrarAccesoDenegado();
     return;
   }
@@ -1601,7 +1608,7 @@ window.agregarArticuloSolicitud = function agregarArticuloSolicitud() {
 };
 
 window.eliminarArticuloSolicitud = function eliminarArticuloSolicitud(index) {
-  if (!usuarioPuede(0, 2)) {
+  if (!usuarioPuedeEnSolicitudes(0, 2)) {
     mostrarAccesoDenegado();
     return;
   }
@@ -1642,7 +1649,7 @@ window.limpiarSolicitud = function limpiarSolicitud() {
 };
 
 async function guardarSolicitud() {
-  if (!usuarioPuede(0, 2)) {
+  if (!usuarioPuedeEnSolicitudes(0, 2)) {
     mostrarAccesoDenegado();
     return;
   }
