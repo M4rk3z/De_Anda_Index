@@ -1414,7 +1414,13 @@ window.crearSolicitud = function crearSolicitud() {
 
           <div class="paper-field">
             <label for="solicitudSolicitante">Solicitante</label>
-            <input id="solicitudSolicitante" type="text" readonly aria-readonly="true">
+            <input
+              id="solicitudSolicitante"
+              type="text"
+              maxlength="150"
+              autocomplete="off"
+              required
+            >
           </div>
         </div>
 
@@ -1619,7 +1625,15 @@ async function guardarSolicitud() {
     return;
   }
 
-  const solicitante = localStorage.getItem('usuarioActivo') || null;
+  const solicitanteInput = document.getElementById('solicitudSolicitante');
+  const solicitante = solicitanteInput?.value.trim() || '';
+
+  if (!solicitante) {
+    if (status) status.textContent = 'Escribe el nombre del solicitante.';
+    solicitanteInput?.focus();
+    return;
+  }
+
   const articulos = Array.from(document.querySelectorAll('.solicitud-articulo'));
 
   const payload = articulos.map(articulo => {
