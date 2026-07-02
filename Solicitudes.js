@@ -355,12 +355,11 @@ window.abrirSolicitud = async function abrirSolicitud(id) {
 
   document.querySelectorAll('.solicitud-paper input, .solicitud-paper textarea, .solicitud-paper select')
     .forEach(control => {
-      const esComentario = control.classList.contains('solicitud-comentarios');
+      if (control.closest('.solicitud-formato-futuro')) return;
 
-      if (!control.closest('.solicitud-formato-futuro') && !esComentario) {
-        control.disabled = true;
-        control.readOnly = true;
-      }
+      const soloLectura = ['solicitudFolio', 'solicitudFecha'].includes(control.id);
+      control.disabled = soloLectura;
+      control.readOnly = soloLectura;
     });
 
   const acciones = document.querySelector('.solicitud-actions');
@@ -548,8 +547,41 @@ window.guardarSeguimientoSolicitud = async function guardarSeguimientoSolicitud(
     'input[name="clasificacionGeneral"]:checked'
   )?.value || null;
 
+  const solicitanteInput = document.getElementById('solicitudSolicitante');
+  const solicitante = solicitanteInput?.value.trim() || '';
+
+  if (!solicitante) {
+    if (status) status.textContent = 'Escribe el nombre del solicitante.';
+    solicitanteInput?.focus();
+    return;
+  }
+
+  const categorias = [];
+
+  if (document.getElementById('categoriaInventario')?.checked) {
+    categorias.push('Inventario');
+  }
+
+  if (document.getElementById('categoriaVenta')?.checked) {
+    categorias.push('Venta');
+  }
+
+  if (document.getElementById('categoriaCompra')?.checked) {
+    categorias.push('Compra');
+  }
+
+  const fantasmaValue = document.querySelector(
+    'input[name="productoFantasma"]:checked'
+  )?.value || null;
+
   const codigo = document.getElementById('nuevoCodigoGenerado')?.textContent.trim();
   const payload = {
+    Solicitante: solicitante,
+    C_Extranjero: document.getElementById('codigoExtranjero')?.value.trim() || null,
+    D_extranjero: document.getElementById('descripcionExtranjera')?.value.trim() || null,
+    UM: document.getElementById('solicitudUnidadMedida')?.value || null,
+    Fantasma: fantasmaValue === null ? null : fantasmaValue === 'Si',
+    Categoria: categorias.length ? categorias.join(', ') : null,
     Clasificacion: clasificacion,
     Grupo: nuevoCodigoState.grupoNombre || null,
     Familia: nuevoCodigoState.familiaNombre || null,
