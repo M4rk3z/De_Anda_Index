@@ -319,6 +319,7 @@ window.abrirSolicitud = async function abrirSolicitud(id) {
   asignarValorSolicitud('codigoExtranjero', data.C_Extranjero);
   asignarValorSolicitud('descripcionExtranjera', data.D_extranjero);
   asignarValorSolicitud('solicitudUnidadMedida', data.UM);
+  asignarValorSolicitud('solicitudComentarios', data.Comentarios);
 
   const fantasma = document.querySelector(
     `input[name="productoFantasma"][value="${data.Fantasma ? 'Si' : 'No'}"]`
@@ -354,7 +355,9 @@ window.abrirSolicitud = async function abrirSolicitud(id) {
 
   document.querySelectorAll('.solicitud-paper input, .solicitud-paper textarea, .solicitud-paper select')
     .forEach(control => {
-      if (!control.closest('.solicitud-formato-futuro')) {
+      const esComentario = control.classList.contains('solicitud-comentarios');
+
+      if (!control.closest('.solicitud-formato-futuro') && !esComentario) {
         control.disabled = true;
         control.readOnly = true;
       }
@@ -555,7 +558,8 @@ window.guardarSeguimientoSolicitud = async function guardarSeguimientoSolicitud(
     Descripcion: document.getElementById('nuevoCodigoDescripcionVieja')?.value.trim() || null,
     Codigo: codigo && codigo !== '-' ? codigo : null,
     Version: version,
-    Revision: revision
+    Revision: revision,
+    Comentarios: document.getElementById('solicitudComentarios')?.value.trim() || null
   };
 
   if (status) status.textContent = 'Guardando seguimiento...';
@@ -1284,6 +1288,7 @@ function crearBloqueArticuloSolicitud(index) {
   const inventarioId = esPrimero ? 'categoriaInventario' : `categoriaInventario-${index}`;
   const ventaId = esPrimero ? 'categoriaVenta' : `categoriaVenta-${index}`;
   const compraId = esPrimero ? 'categoriaCompra' : `categoriaCompra-${index}`;
+  const comentariosId = esPrimero ? 'solicitudComentarios' : `solicitudComentarios-${index}`;
   const fantasmaName = esPrimero ? 'productoFantasma' : `productoFantasma-${index}`;
 
   return `
@@ -1356,6 +1361,18 @@ function crearBloqueArticuloSolicitud(index) {
             </label>
           </div>
         </div>
+      </div>
+
+      <div class="paper-field solicitud-comentarios-field">
+        <label for="${comentariosId}">Comentarios</label>
+        <textarea
+          id="${comentariosId}"
+          class="solicitud-comentarios"
+          rows="3"
+          maxlength="2000"
+          placeholder="Agrega observaciones o informacion adicional para esta solicitud"
+        ></textarea>
+        <span class="solicitud-comentarios-ayuda">Maximo 2,000 caracteres.</span>
       </div>
     </div>
   `;
@@ -1628,6 +1645,7 @@ async function guardarSolicitud() {
       UM: articulo.querySelector('.solicitud-unidad-medida')?.value.trim() || null,
       Fantasma: fantasmaValue === null ? null : fantasmaValue === 'Si',
       Categoria: categorias.length ? categorias.join(', ') : null,
+      Comentarios: articulo.querySelector('.solicitud-comentarios')?.value.trim() || null,
       Status: 'Seguimiento'
     };
   });
