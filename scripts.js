@@ -89,6 +89,17 @@ function showSection(section) {
 
   if (!viewer) return;
 
+  if (localStorage.getItem('sesionActiva') !== 'true') {
+    const appScreen = document.getElementById('appScreen');
+    const loginScreen = document.getElementById('loginScreen');
+    const loginStatus = document.getElementById('loginStatus');
+
+    if (appScreen) appScreen.style.display = 'none';
+    if (loginScreen) loginScreen.style.display = 'grid';
+    if (loginStatus) loginStatus.textContent = 'Inicia sesion para continuar.';
+    return;
+  }
+
   if (section !== 'bienvenida' && !puedeAccederSeccion(section)) {
     mostrarAccesoDenegado();
     return;

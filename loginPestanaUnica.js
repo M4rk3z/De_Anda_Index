@@ -252,6 +252,12 @@ function entrarAlSistema() {
     return;
   }
 
+  if (localStorage.getItem('sesionActiva') !== 'true') {
+    appScreen.style.display = 'none';
+    loginScreen.style.display = 'grid';
+    return;
+  }
+
   loginScreen.style.display = 'none';
   appScreen.style.display = 'flex';
   if (topbarUserName) topbarUserName.textContent = nombreUsuario;
@@ -328,6 +334,12 @@ window.addEventListener('storage', async event => {
 });
 
 document.addEventListener('DOMContentLoaded', async () => {
+  const appScreen = document.getElementById('appScreen');
+  const loginScreen = document.getElementById('loginScreen');
+
+  if (appScreen) appScreen.style.display = 'none';
+  if (loginScreen) loginScreen.style.display = 'grid';
+
   if (localStorage.getItem('sesionActiva') !== 'true') return;
 
   const disponible = await asegurarBloqueoSesion();
