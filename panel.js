@@ -68,10 +68,12 @@ function renderPanelControl() {
     return;
   }
 
+  const nombreUsuario = obtenerNombreUsuarioVisible();
+
   viewer.innerHTML = `
     <div class="catalog-wrapper">
       <div class="catalog-header">
-        <h2>Bienvenido ADMIN</h2>
+        <h2>Bienvenido, ${escapeHtml(nombreUsuario)}</h2>
         <p>Administracion de Base de Datos Local de Codificacion.</p>
       </div>
 
@@ -343,7 +345,7 @@ async function guardarRegistroMaestro(index) {
     return;
   }
 
-  const responsable = localStorage.getItem('usuarioActivo') || 'Usuario';
+  const responsable = obtenerNombreUsuarioVisible();
   const fechaCambio = new Date().toISOString();
 
   const payload = {
@@ -437,6 +439,11 @@ function renderControlAccesos() {
         </div>
 
         <div class="field-block">
+          <label for="nuevoNombreAcceso">Nombre</label>
+          <input id="nuevoNombreAcceso" type="text" autocomplete="off" placeholder="Nombre completo">
+        </div>
+
+        <div class="field-block">
           <label for="nuevoPasswordAcceso">Contrasena</label>
           <div class="password-field">
             <input id="nuevoPasswordAcceso" type="password" autocomplete="new-password" placeholder="Contrasena">
@@ -464,13 +471,14 @@ function renderControlAccesos() {
           <thead>
             <tr>
               <th>Usuario</th>
+              <th>Nombre</th>
               <th>Contrasena</th>
               <th>Nivel</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody id="controlAccesosResultados">
-            <tr><td colspan="4">Cargando usuarios...</td></tr>
+            <tr><td colspan="5">Cargando usuarios...</td></tr>
           </tbody>
         </table>
       </div>
@@ -489,14 +497,27 @@ async function cargarUsuariosAcceso() {
 
   status.textContent = 'Cargando usuarios...';
 
-  const { data, error } = await supabaseClient
+  let { data, error } = await supabaseClient
     .from('Usuarios_Login')
-    .select('id,User_Nombre,User_Pass,Nivel')
+    .select('id,User_Nombre,Nombre,User_Pass,Nivel')
     .order('User_Nombre', { ascending: true });
+
+  if (error && String(error.message || '').includes('Nombre')) {
+    const respaldo = await supabaseClient
+      .from('Usuarios_Login')
+      .select('id,User_Nombre,User_Pass,Nivel')
+      .order('User_Nombre', { ascending: true });
+
+    data = (respaldo.data || []).map(row => ({
+      ...row,
+      Nombre: row.User_Nombre
+    }));
+    error = respaldo.error;
+  }
 
   if (error) {
     status.textContent = 'Error al cargar usuarios: ' + error.message;
-    tbody.innerHTML = '<tr><td colspan="4">No se pudieron cargar los usuarios.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5">No se pudieron cargar los usuarios.</td></tr>';
     return;
   }
 
@@ -510,7 +531,7 @@ function renderUsuariosAcceso() {
   if (!tbody) return;
 
   if (!controlAccesosRows.length) {
-    tbody.innerHTML = '<tr><td colspan="4">No hay usuarios registrados.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5">No hay usuarios registrados.</td></tr>';
     return;
   }
 
@@ -519,6 +540,10 @@ function renderUsuariosAcceso() {
       <td>
         <input id="acceso-usuario-${index}" class="master-input" type="text"
           autocomplete="off" value="${escapeHtml(row.User_Nombre || '')}">
+      </td>
+      <td>
+        <input id="acceso-nombre-${index}" class="master-input" type="text"
+          autocomplete="off" value="${escapeHtml(row.Nombre || row.User_Nombre || '')}">
       </td>
       <td>
         <div class="password-field">
@@ -545,6 +570,7 @@ function renderUsuariosAcceso() {
 }
 
 function renderOpcionesNivelAcceso(nivelActual) {
+  const nivelNormalizado = normalizarNivelUsuario(nivelActual);
   const niveles = [
     ['0', '0 - Control Total'],
     ['1', '1 - Administrador'],
@@ -552,7 +578,7 @@ function renderOpcionesNivelAcceso(nivelActual) {
   ];
 
   return niveles.map(([valor, etiqueta]) => `
-    <option value="${valor}" ${String(nivelActual) === valor ? 'selected' : ''}>
+    <option value="${valor}" ${String(nivelNormalizado) === valor ? 'selected' : ''}>
       ${etiqueta}
     </option>
   `).join('');
@@ -574,15 +600,17 @@ async function agregarUsuarioAcceso() {
   }
 
   const usuarioInput = document.getElementById('nuevoUsuarioAcceso');
+  const nombreInput = document.getElementById('nuevoNombreAcceso');
   const passwordInput = document.getElementById('nuevoPasswordAcceso');
   const nivelInput = document.getElementById('nuevoNivelAcceso');
   const status = document.getElementById('controlAccesosStatus');
   const usuario = usuarioInput ? usuarioInput.value.trim() : '';
+  const nombre = nombreInput ? nombreInput.value.trim() : '';
   const password = passwordInput ? passwordInput.value : '';
   const nivel = nivelInput ? nivelInput.value.trim() : '';
 
-  if (!usuario || !password || !nivel) {
-    if (status) status.textContent = 'Escribe usuario, contrasena y nivel.';
+  if (!usuario || !nombre || !password || !nivel) {
+    if (status) status.textContent = 'Escribe usuario, nombre, contrasena y nivel.';
     return;
   }
 
@@ -604,7 +632,12 @@ async function agregarUsuarioAcceso() {
 
   const { error } = await supabaseClient
     .from('MD:Usuarios')
-    .insert({ User_Nombre: usuario, User_Pass: password, Nivel: nivel });
+    .insert({
+      User_Nombre: usuario,
+      Nombre: nombre,
+      User_Pass: password,
+      Nivel: nivel
+    });
 
   if (error) {
     if (status) status.textContent = 'Error al agregar usuario: ' + error.message;
@@ -612,6 +645,7 @@ async function agregarUsuarioAcceso() {
   }
 
   usuarioInput.value = '';
+  nombreInput.value = '';
   passwordInput.value = '';
   nivelInput.value = '';
   await cargarUsuariosAcceso();
@@ -626,25 +660,32 @@ async function guardarUsuarioAcceso(index) {
 
   const row = controlAccesosRows[index];
   const usuarioInput = document.getElementById(`acceso-usuario-${index}`);
+  const nombreInput = document.getElementById(`acceso-nombre-${index}`);
   const passwordInput = document.getElementById(`acceso-password-${index}`);
   const nivelInput = document.getElementById(`acceso-nivel-${index}`);
   const status = document.getElementById('controlAccesosStatus');
-  if (!row || !usuarioInput || !passwordInput || !nivelInput) return;
+  if (!row || !usuarioInput || !nombreInput || !passwordInput || !nivelInput) return;
 
   const usuario = usuarioInput.value.trim();
+  const nombre = nombreInput.value.trim();
   const password = passwordInput.value;
   const nivel = nivelInput.value.trim();
 
-  if (!usuario || !password || !nivel) {
-    if (status) status.textContent = 'Usuario, contrasena y nivel no pueden quedar vacios.';
+  if (!usuario || !nombre || !password || !nivel) {
+    if (status) status.textContent = 'Usuario, nombre, contrasena y nivel no pueden quedar vacios.';
     return;
   }
 
   const { data, error } = await supabaseClient
     .from('MD:Usuarios')
-    .update({ User_Nombre: usuario, User_Pass: password, Nivel: nivel })
+    .update({
+      User_Nombre: usuario,
+      Nombre: nombre,
+      User_Pass: password,
+      Nivel: nivel
+    })
     .eq('id', row.id)
-    .select('id,User_Nombre,User_Pass,Nivel')
+    .select('id,User_Nombre,Nombre,User_Pass,Nivel')
     .maybeSingle();
 
   if (error) {
@@ -662,7 +703,12 @@ async function guardarUsuarioAcceso(index) {
 
   if (String(data.id) === String(localStorage.getItem('usuarioId') || '')) {
     localStorage.setItem('usuarioActivo', data.User_Nombre);
+    localStorage.setItem('usuarioNombre', data.Nombre || data.User_Nombre);
     localStorage.setItem('usuarioNivel', String(data.Nivel ?? ''));
+    const topbarUserName = document.getElementById('topbarUserName');
+    if (topbarUserName) {
+      topbarUserName.textContent = data.Nombre || data.User_Nombre;
+    }
     aplicarPermisosNavegacion();
   }
 

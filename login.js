@@ -9,11 +9,22 @@ async function login(event) {
   status.style.color = '#111827';
 
   try {
-    const { data, error } = await supabaseClient
+    let { data, error } = await supabaseClient
       .from('Usuarios_Login')
-      .select('id, User_Nombre, User_Pass, Nivel')
+      .select('id, User_Nombre, User_Pass, Nivel, Nombre')
       .ilike('User_Nombre', usuario)
       .maybeSingle();
+
+    if (error && String(error.message || '').includes('Nombre')) {
+      const respaldo = await supabaseClient
+        .from('Usuarios_Login')
+        .select('id, User_Nombre, User_Pass, Nivel')
+        .ilike('User_Nombre', usuario)
+        .maybeSingle();
+
+      data = respaldo.data;
+      error = respaldo.error;
+    }
 
     console.log('USUARIO ENCONTRADO:', data);
     console.log('ERROR LOGIN:', error);
@@ -41,6 +52,7 @@ async function login(event) {
 
     localStorage.setItem('sesionActiva', 'true');
     localStorage.setItem('usuarioActivo', data.User_Nombre);
+    localStorage.setItem('usuarioNombre', data.Nombre || data.User_Nombre);
     localStorage.setItem('usuarioId', data.id);
     const nivelNormalizado = normalizarNivelUsuario(data.Nivel);
 
@@ -64,7 +76,8 @@ function entrarAlSistema() {
   const loginScreen = document.getElementById('loginScreen');
   const appScreen = document.getElementById('appScreen');
   const viewer = document.getElementById('viewer');
-  const usuarioActivo = localStorage.getItem('usuarioActivo') || 'Usuario';
+  const nombreUsuario = obtenerNombreUsuarioVisible();
+  const topbarUserName = document.getElementById('topbarUserName');
 
   if (!loginScreen || !appScreen) {
     alert('Falta loginScreen o appScreen en el HTML.');
@@ -73,12 +86,13 @@ function entrarAlSistema() {
 
   loginScreen.style.display = 'none';
   appScreen.style.display = 'flex';
+  if (topbarUserName) topbarUserName.textContent = nombreUsuario;
 
   aplicarPermisosNavegacion();
 
   if (viewer) {
     viewer.innerHTML = `
-      <h2>Bienvenido, ${usuarioActivo}</h2>
+      <h2>Bienvenido, ${escapeHtml(nombreUsuario)}</h2>
       <p>Acceso correcto. Selecciona una opcion del menu para continuar.</p>
     `;
   }
@@ -87,6 +101,7 @@ function entrarAlSistema() {
 function cerrarSesion() {
   localStorage.removeItem('sesionActiva');
   localStorage.removeItem('usuarioActivo');
+  localStorage.removeItem('usuarioNombre');
   localStorage.removeItem('usuarioId');
   localStorage.removeItem('usuarioNivel');
 
@@ -95,6 +110,7 @@ function cerrarSesion() {
   const usuarioInput = document.getElementById('loginUsuario');
   const passwordInput = document.getElementById('loginPassword');
   const status = document.getElementById('loginStatus');
+  const topbarUserName = document.getElementById('topbarUserName');
 
   if (appScreen) {
     appScreen.style.display = 'none';
@@ -114,5 +130,9 @@ function cerrarSesion() {
 
   if (status) {
     status.textContent = '';
+  }
+
+  if (topbarUserName) {
+    topbarUserName.textContent = '';
   }
 }

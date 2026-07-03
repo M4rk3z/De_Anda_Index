@@ -652,7 +652,7 @@ window.cambiarStatusSolicitud = async function cambiarStatusSolicitud(motivoRech
 
   if (esNuevaAprobacion) {
     if (esCambio) {
-      cambiosStatus.Cambio_Aprobado_Por = localStorage.getItem('usuarioActivo') || 'Usuario';
+      cambiosStatus.Cambio_Aprobado_Por = obtenerNombreUsuarioVisible();
       cambiosStatus.Cambio_Fecha_Aprobacion = obtenerFechaLocalSolicitud();
     } else {
       cambiosStatus.Fecha_Publicacion = obtenerFechaLocalSolicitud();
@@ -797,7 +797,7 @@ window.subirSolicitudBDGeneral = async function subirSolicitudBDGeneral() {
 
   if (statusBox) statusBox.textContent = 'Subiendo codigo a BD_General...';
 
-  const responsable = localStorage.getItem('usuarioActivo') || 'Usuario';
+  const responsable = obtenerNombreUsuarioVisible();
   const { error } = await supabaseClient
     .from('BD_General')
     .insert({
@@ -1116,7 +1116,7 @@ function renderFormularioSolicitudCambio(padre, cambio) {
   const esConsulta = Boolean(cambio);
   const deshabilitado = esConsulta ? 'disabled' : '';
   const folioPadre = cambio?.Folio_Padre || padre?.Folio || '';
-  const solicitante = cambio?.Solicitante || localStorage.getItem('usuarioActivo') || 'Usuario';
+  const solicitante = cambio?.Solicitante || obtenerNombreUsuarioVisible();
   const fecha = cambio?.Fecha || obtenerFechaLocalSolicitud();
   const secciones = String(cambio?.Cambio_Secciones || '').split(',').map(item => item.trim());
   const estatusRequerido = cambio?.Cambio_Estatus_Requerido || '';
@@ -1278,7 +1278,7 @@ window.guardarSolicitudCambio = async function guardarSolicitudCambio() {
     Tipo_Solicitud: 'Cambio',
     Folio_Padre: solicitudCambioPadre.Folio,
     Fecha: obtenerFechaLocalSolicitud(),
-    Solicitante: localStorage.getItem('usuarioActivo') || null,
+    Solicitante: obtenerNombreUsuarioVisible(),
     D_extranjero: motivo,
     UM: unidad,
     Status: 'Seguimiento',
@@ -1633,14 +1633,14 @@ function actualizarNumeracionArticulosSolicitud() {
 window.prepararSolicitudInicial = function prepararSolicitudInicial() {
   const fecha = document.getElementById('solicitudFecha');
   const solicitante = document.getElementById('solicitudSolicitante');
-  const usuarioActivo = localStorage.getItem('usuarioActivo') || 'Usuario';
+  const nombreUsuario = obtenerNombreUsuarioVisible();
 
   if (fecha) {
     fecha.value = new Date().toISOString().slice(0, 10);
   }
 
   if (solicitante) {
-    solicitante.value = usuarioActivo;
+    solicitante.value = nombreUsuario;
   }
 };
 

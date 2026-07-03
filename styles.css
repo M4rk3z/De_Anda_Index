@@ -1210,7 +1210,12 @@ Boton de cerrar sesion
 
 .access-create-form {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(260px, 1fr) minmax(160px, 220px) auto;
+  grid-template-columns:
+    minmax(180px, 1fr)
+    minmax(220px, 1.2fr)
+    minmax(240px, 1fr)
+    minmax(150px, 190px)
+    auto;
   gap: 14px;
   align-items: end;
   margin: 18px 0;
@@ -1237,23 +1242,33 @@ Boton de cerrar sesion
 }
 
 .access-control-table {
-  min-width: 1100px;
+  min-width: 1280px;
   table-layout: fixed;
 }
 
 .access-control-table th:nth-child(1),
 .access-control-table td:nth-child(1) {
-  width: 280px;
+  width: 220px;
 }
 
 .access-control-table th:nth-child(2),
 .access-control-table td:nth-child(2) {
-  width: 380px;
+  width: 280px;
 }
 
 .access-control-table th:nth-child(3),
 .access-control-table td:nth-child(3) {
-  width: 240px;
+  width: 360px;
+}
+
+.access-control-table th:nth-child(4),
+.access-control-table td:nth-child(4) {
+  width: 180px;
+}
+
+.access-control-table th:nth-child(5),
+.access-control-table td:nth-child(5) {
+  width: 220px;
 }
 
 .access-row-actions {
@@ -2147,6 +2162,34 @@ select option.option-sin-relacion:disabled {
   margin-top: 5px;
   color: var(--sap-muted);
   font-size: 11px;
+}
+
+.topbar-session {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.topbar-user-name {
+  max-width: 280px;
+  overflow: hidden;
+  color: #d9ecfa;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-session .logout-button {
+  margin-left: 0;
+}
+
+@media (max-width: 560px) {
+  .topbar-user-name {
+    max-width: 110px;
+    font-size: 11px;
+  }
 }
 
 .status-box-loading {

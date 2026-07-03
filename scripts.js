@@ -46,6 +46,12 @@ function usuarioPuede(...niveles) {
   return nivel !== null && niveles.includes(nivel);
 }
 
+function obtenerNombreUsuarioVisible() {
+  return localStorage.getItem('usuarioNombre')
+    || localStorage.getItem('usuarioActivo')
+    || 'Usuario';
+}
+
 function puedeAccederSeccion(section) {
   if (section === 'solicitudes') {
     return localStorage.getItem('sesionActiva') === 'true';
@@ -100,10 +106,10 @@ function showSection(section) {
   });
 
   if (section === 'bienvenida') {
-    const usuarioActivo = localStorage.getItem('usuarioActivo') || 'Usuario';
+    const nombreUsuario = obtenerNombreUsuarioVisible();
 
     viewer.innerHTML = `
-      <h2>Bienvenido, ${escapeHtml(usuarioActivo)}</h2>
+      <h2>Bienvenido, ${escapeHtml(nombreUsuario)}</h2>
       <p>Acceso correcto. Selecciona una opcion del menu para continuar.</p>
     `;
     return;

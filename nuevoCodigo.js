@@ -799,7 +799,7 @@ async function guardarNuevoCodigoMateriaPrima() {
 
   setNuevoCodigoLoading();
 
-  const responsable = localStorage.getItem('usuarioActivo') || 'Usuario';
+  const responsable = obtenerNombreUsuarioVisible();
 
   const { error } = await supabaseClient
     .from(TABLA_CODIGOS)
