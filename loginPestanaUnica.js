@@ -120,7 +120,7 @@ function mostrarBloqueoOtraPestana() {
   });
 
   if (status) {
-    status.textContent = 'La aplicación ya está abierta en otra pestaña.';
+    status.textContent = 'El usuario ya está en uso.';
     status.style.color = '#b91c1c';
   }
 
