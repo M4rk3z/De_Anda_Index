@@ -429,7 +429,7 @@ function renderControlAccesos() {
     <div class="control-card access-control-card">
       <div class="catalog-header">
         <h2>Control de Accesos</h2>
-        <p>Administra los usuarios y contrasenas del sistema.</p>
+        <p>Administra los usuarios y contraseñas del sistema.</p>
       </div>
 
       <div class="access-create-form">
@@ -444,9 +444,9 @@ function renderControlAccesos() {
         </div>
 
         <div class="field-block">
-          <label for="nuevoPasswordAcceso">Contrasena</label>
+          <label for="nuevoPasswordAcceso">Contraseña</label>
           <div class="password-field">
-            <input id="nuevoPasswordAcceso" type="password" autocomplete="new-password" placeholder="Contrasena">
+            <input id="nuevoPasswordAcceso" type="password" autocomplete="new-password" placeholder="Contraseña">
             <button type="button" onclick="alternarPasswordAcceso('nuevoPasswordAcceso', this)">Mostrar</button>
           </div>
         </div>
@@ -472,7 +472,7 @@ function renderControlAccesos() {
             <tr>
               <th>Usuario</th>
               <th>Nombre</th>
-              <th>Contrasena</th>
+              <th>Contraseña</th>
               <th>Nivel</th>
               <th>Acciones</th>
             </tr>
@@ -610,7 +610,7 @@ async function agregarUsuarioAcceso() {
   const nivel = nivelInput ? nivelInput.value.trim() : '';
 
   if (!usuario || !nombre || !password || !nivel) {
-    if (status) status.textContent = 'Escribe usuario, nombre, contrasena y nivel.';
+    if (status) status.textContent = 'Escribe usuario, nombre, contraseña y nivel.';
     return;
   }
 
@@ -672,7 +672,7 @@ async function guardarUsuarioAcceso(index) {
   const nivel = nivelInput.value.trim();
 
   if (!usuario || !nombre || !password || !nivel) {
-    if (status) status.textContent = 'Usuario, nombre, contrasena y nivel no pueden quedar vacios.';
+    if (status) status.textContent = 'Usuario, nombre, contraseña y nivel no pueden quedar vacíos.';
     return;
   }
 
