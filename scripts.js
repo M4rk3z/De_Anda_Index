@@ -6,7 +6,10 @@ const supabaseClient = supabase.createClient(
   SUPABASE_ANON_KEY
 );
 
+let dashboardCharts = [];
+
 const ACCESOS_POR_SECCION = {
+  bienvenida: [0, 1, 2],
   buscador: [0, 1, 2],
   nuevoCodigo: [0, 1],
   panelControl: [0, 1],
@@ -117,12 +120,7 @@ function showSection(section) {
   });
 
   if (section === 'bienvenida') {
-    const nombreUsuario = obtenerNombreUsuarioVisible();
-
-    viewer.innerHTML = `
-      <h2>Bienvenido, ${escapeHtml(nombreUsuario)}</h2>
-      <p>Acceso correcto. Selecciona una opcion del menu para continuar.</p>
-    `;
+    renderDashboardInicio();
     return;
   }
 
@@ -153,6 +151,553 @@ function showSection(section) {
   }
 }
 
+
+function renderDashboardInicio() {
+  const viewer = document.getElementById('viewer');
+  if (!viewer) return;
+
+  const nombreUsuario = obtenerNombreUsuarioVisible() || 'Kevin Gomez';
+
+  destruirDashboardCharts();
+
+  viewer.innerHTML = `
+    <div class="dashboard-home">
+      <div class="dashboard-hero">
+        <div>
+          <h2>Bienvenido, ${escapeHtml(nombreUsuario)}</h2>
+          <p>Resumen general del sistema</p>
+        </div>
+
+        <button
+          id="dashboardSolicitudesNuevasBtn"
+          type="button"
+          class="dashboard-primary-action"
+          onclick="irSolicitudesNuevasPendientes()"
+        >
+          Ver solicitudes nuevas (0)
+        </button>
+      </div>
+
+      <div class="dashboard-kpi-grid">
+        ${renderDashboardKpiCard('Solicitudes nuevas', '-', 'dashboardKpiNuevas')}
+        ${renderDashboardKpiCard('Codigos hoy', '-', 'dashboardKpiCodigosHoy')}
+        ${renderDashboardKpiCard('Codigos esta semana', '-', 'dashboardKpiCodigosSemana')}
+        ${renderDashboardKpiCard('Solicitudes pendientes', '-', 'dashboardKpiPendientes')}
+      </div>
+
+      <div class="dashboard-charts-grid">
+        <section class="dashboard-panel dashboard-panel-wide">
+          <div class="dashboard-panel-header">
+            <h3>Codigos por grupo</h3>
+          </div>
+          <div class="dashboard-chart-box">
+            <canvas id="dashboardCodigosGrupoChart"></canvas>
+            <p id="dashboardCodigosGrupoFallback" class="dashboard-chart-fallback"></p>
+          </div>
+        </section>
+
+        <section class="dashboard-panel">
+          <div class="dashboard-panel-header">
+            <h3>Solicitudes por estado</h3>
+          </div>
+          <div class="dashboard-chart-box">
+            <canvas id="dashboardSolicitudesEstadoChart"></canvas>
+            <p id="dashboardSolicitudesEstadoFallback" class="dashboard-chart-fallback"></p>
+          </div>
+        </section>
+
+        <section class="dashboard-panel dashboard-panel-full">
+          <div class="dashboard-panel-header">
+            <h3>Altas recientes</h3>
+            <span>Ultimos 7 dias</span>
+          </div>
+          <div class="dashboard-chart-box dashboard-chart-box-short">
+            <canvas id="dashboardAltasRecientesChart"></canvas>
+            <p id="dashboardAltasRecientesFallback" class="dashboard-chart-fallback"></p>
+          </div>
+        </section>
+      </div>
+
+      <section class="dashboard-panel">
+        <div class="dashboard-panel-header">
+          <h3>Ultimas solicitudes</h3>
+        </div>
+
+        <div class="table-scroll dashboard-table-scroll">
+          <table class="catalog-table dashboard-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Solicitante</th>
+                <th>Descripcion</th>
+                <th>Estado</th>
+                <th>Accion</th>
+              </tr>
+            </thead>
+            <tbody id="dashboardUltimasSolicitudes">
+              <tr>
+                <td colspan="5">Cargando informacion...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div id="dashboardStatus" class="status-box">Cargando resumen...</div>
+    </div>
+  `;
+
+  cargarDashboardInicio();
+}
+
+function renderDashboardKpiCard(titulo, valor, id) {
+  return `
+    <article class="dashboard-kpi-card">
+      <span>${escapeHtml(titulo)}</span>
+      <strong id="${id}">${escapeHtml(valor)}</strong>
+    </article>
+  `;
+}
+
+async function cargarDashboardInicio() {
+  const status = document.getElementById('dashboardStatus');
+
+  try {
+    const [solicitudesResult, codigosResult] = await Promise.all([
+      cargarDashboardSolicitudes(),
+      cargarDashboardCodigos()
+    ]);
+
+    const solicitudes = solicitudesResult.data || [];
+    const codigos = codigosResult.data || [];
+    const usaMock = solicitudesResult.mock || codigosResult.mock;
+
+    const resumen = construirDashboardResumen(solicitudes, codigos);
+    pintarDashboardResumen(resumen);
+
+    if (status) {
+      status.textContent = usaMock
+        ? 'Datos temporales cargados. Listo para conectar mas fuentes.'
+        : 'Resumen actualizado correctamente.';
+    }
+  } catch (error) {
+    console.error(error);
+    const resumen = construirDashboardResumen(
+      obtenerDashboardSolicitudesMock(),
+      obtenerDashboardCodigosMock()
+    );
+    pintarDashboardResumen(resumen);
+
+    if (status) {
+      status.textContent = 'No fue posible leer datos reales. Se muestran datos temporales.';
+    }
+  }
+}
+
+async function cargarDashboardSolicitudes() {
+  const columnas = 'id,Folio,Fecha,Solicitante,D_extranjero,Status';
+
+  if (!supabaseClient) {
+    return { data: obtenerDashboardSolicitudesMock(), mock: true };
+  }
+
+  const { data, error } = await supabaseClient
+    .from('Solicitudes')
+    .select(columnas)
+    .order('id', { ascending: false })
+    .limit(100);
+
+  if (error || !data || data.length === 0) {
+    return { data: obtenerDashboardSolicitudesMock(), mock: true };
+  }
+
+  return { data, mock: false };
+}
+
+async function cargarDashboardCodigos() {
+  if (!supabaseClient) {
+    return { data: obtenerDashboardCodigosMock(), mock: true };
+  }
+
+  const { data, error } = await supabaseClient
+    .from('BD_General')
+    .select('"Codigo Pixvs","Codigo SAP","Nombre Pixvs","Status","Fecha de ultimo Cambio"')
+    .order('Id', { ascending: false })
+    .limit(1000);
+
+  if (error || !data || data.length === 0) {
+    return { data: obtenerDashboardCodigosMock(), mock: true };
+  }
+
+  return { data, mock: false };
+}
+
+function construirDashboardResumen(solicitudes, codigos) {
+  const hoy = obtenerFechaSoloDia(new Date());
+  const inicioSemana = obtenerInicioSemana(new Date());
+  const ultimos7Dias = obtenerUltimosDias(7);
+
+  const solicitudesNuevas = solicitudes.filter(solicitudEsNuevaPendiente);
+  const solicitudesPendientes = solicitudes.filter(solicitudEsPendiente);
+
+  const codigosHoy = codigos.filter(item => (
+    obtenerFechaSoloDia(parsearFechaFlexible(item['Fecha de ultimo Cambio'])) === hoy
+  ));
+
+  const codigosSemana = codigos.filter(item => {
+    const fecha = parsearFechaFlexible(item['Fecha de ultimo Cambio']);
+    return fecha && fecha >= inicioSemana;
+  });
+
+  return {
+    kpis: {
+      nuevas: solicitudesNuevas.length,
+      codigosHoy: codigosHoy.length,
+      codigosSemana: codigosSemana.length,
+      pendientes: solicitudesPendientes.length
+    },
+    codigosPorGrupo: contarPorGrupoCodigo(codigos),
+    solicitudesPorEstado: contarPorEstadoSolicitud(solicitudes),
+    altasRecientes: ultimos7Dias.map(dia => ({
+      label: dia.label,
+      value: codigos.filter(item => (
+        obtenerFechaSoloDia(parsearFechaFlexible(item['Fecha de ultimo Cambio'])) === dia.key
+      )).length
+    })),
+    ultimasSolicitudes: solicitudes.slice(0, 8)
+  };
+}
+
+function pintarDashboardResumen(resumen) {
+  asignarTextoDashboard('dashboardKpiNuevas', resumen.kpis.nuevas);
+  asignarTextoDashboard('dashboardKpiCodigosHoy', resumen.kpis.codigosHoy);
+  asignarTextoDashboard('dashboardKpiCodigosSemana', resumen.kpis.codigosSemana);
+  asignarTextoDashboard('dashboardKpiPendientes', resumen.kpis.pendientes);
+
+  const boton = document.getElementById('dashboardSolicitudesNuevasBtn');
+  if (boton) {
+    boton.textContent = `Ver solicitudes nuevas (${resumen.kpis.nuevas})`;
+  }
+
+  renderDashboardChart(
+    'dashboardCodigosGrupoChart',
+    'dashboardCodigosGrupoFallback',
+    {
+      type: 'bar',
+      labels: resumen.codigosPorGrupo.map(item => item.label),
+      data: resumen.codigosPorGrupo.map(item => item.value),
+      label: 'Codigos',
+      backgroundColor: '#0a6ed1'
+    }
+  );
+
+  renderDashboardChart(
+    'dashboardSolicitudesEstadoChart',
+    'dashboardSolicitudesEstadoFallback',
+    {
+      type: 'doughnut',
+      labels: resumen.solicitudesPorEstado.map(item => item.label),
+      data: resumen.solicitudesPorEstado.map(item => item.value),
+      backgroundColor: ['#0a6ed1', '#e9730c', '#107e3e', '#bb0000', '#6b7280']
+    }
+  );
+
+  renderDashboardChart(
+    'dashboardAltasRecientesChart',
+    'dashboardAltasRecientesFallback',
+    {
+      type: 'line',
+      labels: resumen.altasRecientes.map(item => item.label),
+      data: resumen.altasRecientes.map(item => item.value),
+      label: 'Altas',
+      backgroundColor: 'rgba(10, 110, 209, 0.16)',
+      borderColor: '#0a6ed1'
+    }
+  );
+
+  renderDashboardUltimasSolicitudes(resumen.ultimasSolicitudes);
+}
+
+function asignarTextoDashboard(id, valor) {
+  const elemento = document.getElementById(id);
+  if (elemento) elemento.textContent = String(valor);
+}
+
+function renderDashboardChart(canvasId, fallbackId, config) {
+  const canvas = document.getElementById(canvasId);
+  const fallback = document.getElementById(fallbackId);
+
+  if (!canvas) return;
+
+  if (!window.Chart) {
+    canvas.style.display = 'none';
+    if (fallback) fallback.textContent = 'Chart.js no esta disponible.';
+    return;
+  }
+
+  const valores = config.data || [];
+  const total = valores.reduce((sum, value) => sum + Number(value || 0), 0);
+
+  if (total === 0) {
+    canvas.style.display = 'none';
+    if (fallback) fallback.textContent = 'Sin datos para graficar.';
+    return;
+  }
+
+  if (fallback) fallback.textContent = '';
+  canvas.style.display = 'block';
+
+  const chartConfig = construirChartConfig(config);
+  dashboardCharts.push(new Chart(canvas, chartConfig));
+}
+
+function construirChartConfig(config) {
+  const baseDataset = {
+    label: config.label || '',
+    data: config.data,
+    backgroundColor: config.backgroundColor,
+    borderColor: config.borderColor || config.backgroundColor,
+    borderWidth: 2,
+    tension: 0.35,
+    fill: config.type === 'line'
+  };
+
+  return {
+    type: config.type,
+    data: {
+      labels: config.labels,
+      datasets: [baseDataset]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: config.type === 'doughnut',
+          position: 'bottom'
+        }
+      },
+      scales: config.type === 'doughnut' ? {} : {
+        y: {
+          beginAtZero: true,
+          ticks: { precision: 0 },
+          grid: { color: '#edf2f7' }
+        },
+        x: {
+          grid: { display: false }
+        }
+      }
+    }
+  };
+}
+
+function renderDashboardUltimasSolicitudes(solicitudes) {
+  const tbody = document.getElementById('dashboardUltimasSolicitudes');
+  if (!tbody) return;
+
+  if (!solicitudes || solicitudes.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5">No hay solicitudes recientes.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = solicitudes.map(solicitud => `
+    <tr>
+      <td>${escapeHtml(formatearFechaSolicitudDashboard(solicitud.Fecha))}</td>
+      <td>${escapeHtml(solicitud.Solicitante || '-')}</td>
+      <td>${escapeHtml(solicitud.D_extranjero || solicitud.Descripcion || '-')}</td>
+      <td>${renderDashboardEstadoBadge(solicitud.Status)}</td>
+      <td>
+        <button
+          type="button"
+          class="dashboard-review-button"
+          onclick="revisarSolicitudDashboard(${Number(solicitud.id || 0)})"
+        >Revisar</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderDashboardEstadoBadge(status) {
+  const valor = String(status || 'Pendiente').trim();
+  const normalizado = normalizarTextoFlexible(valor);
+  let clase = 'pendiente';
+
+  if (normalizado.includes('NUEVA')) clase = 'nueva';
+  if (normalizado.includes('SEGUIMIENTO') || normalizado.includes('PENDIENTE')) clase = 'pendiente';
+  if (normalizado.includes('LIBERADO') || normalizado.includes('APROBADO')) clase = 'liberado';
+  if (normalizado.includes('RECHAZO')) clase = 'rechazo';
+
+  return `<span class="dashboard-status-badge dashboard-status-${clase}">${escapeHtml(valor)}</span>`;
+}
+
+function revisarSolicitudDashboard(id) {
+  if (id && typeof abrirSolicitud === 'function' && usuarioPuedeEnDashboardSeguimiento()) {
+    abrirSolicitud(id);
+    return;
+  }
+
+  showSection('solicitudes');
+}
+
+function usuarioPuedeEnDashboardSeguimiento() {
+  const nivel = normalizarNivelUsuario(localStorage.getItem('usuarioNivel'));
+  return nivel === 0 || nivel === 1;
+}
+
+function irSolicitudesNuevasPendientes() {
+  showSection('solicitudes');
+
+  setTimeout(() => {
+    const filtro = document.getElementById('solicitudesFiltroStatus');
+    if (filtro) {
+      filtro.value = '__nuevas_pendientes__';
+      cargarSolicitudes();
+    }
+  }, 0);
+}
+
+function destruirDashboardCharts() {
+  dashboardCharts.forEach(chart => {
+    if (chart && typeof chart.destroy === 'function') chart.destroy();
+  });
+
+  dashboardCharts = [];
+}
+
+function solicitudEsNuevaPendiente(solicitud) {
+  const status = normalizarTextoFlexible(solicitud?.Status);
+  return status.includes('NUEVA') || status.includes('PENDIENTE');
+}
+
+function solicitudEsPendiente(solicitud) {
+  const status = normalizarTextoFlexible(solicitud?.Status);
+  return solicitudEsNuevaPendiente(solicitud) || status.includes('SEGUIMIENTO') || !status;
+}
+
+function contarPorGrupoCodigo(codigos) {
+  const contador = new Map();
+
+  (codigos || []).forEach(item => {
+    const codigo = String(item['Codigo Pixvs'] || item['Codigo SAP'] || '').trim();
+    const grupo = codigo ? codigo.charAt(0).toUpperCase() : 'S/D';
+    contador.set(grupo, (contador.get(grupo) || 0) + 1);
+  });
+
+  return Array.from(contador.entries())
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
+}
+
+function contarPorEstadoSolicitud(solicitudes) {
+  const contador = new Map();
+
+  (solicitudes || []).forEach(item => {
+    const estado = String(item.Status || 'Pendiente').trim() || 'Pendiente';
+    contador.set(estado, (contador.get(estado) || 0) + 1);
+  });
+
+  return Array.from(contador.entries())
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value);
+}
+
+function obtenerUltimosDias(cantidad) {
+  const dias = [];
+
+  for (let i = cantidad - 1; i >= 0; i -= 1) {
+    const fecha = new Date();
+    fecha.setDate(fecha.getDate() - i);
+    dias.push({
+      key: obtenerFechaSoloDia(fecha),
+      label: fecha.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' })
+    });
+  }
+
+  return dias;
+}
+
+function obtenerInicioSemana(fecha) {
+  const inicio = new Date(fecha);
+  const dia = inicio.getDay();
+  const distancia = dia === 0 ? 6 : dia - 1;
+
+  inicio.setDate(inicio.getDate() - distancia);
+  inicio.setHours(0, 0, 0, 0);
+
+  return inicio;
+}
+
+function obtenerFechaSoloDia(fecha) {
+  if (!fecha || Number.isNaN(fecha.getTime())) return '';
+  const year = fecha.getFullYear();
+  const month = String(fecha.getMonth() + 1).padStart(2, '0');
+  const day = String(fecha.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function parsearFechaFlexible(valor) {
+  if (!valor) return null;
+
+  if (valor instanceof Date) {
+    return Number.isNaN(valor.getTime()) ? null : valor;
+  }
+
+  const texto = String(valor).trim();
+  const directa = new Date(texto);
+  if (!Number.isNaN(directa.getTime())) return directa;
+
+  const ddmmyyyy = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (ddmmyyyy) {
+    const [, day, month, year] = ddmmyyyy;
+    const fecha = new Date(Number(year), Number(month) - 1, Number(day));
+    return Number.isNaN(fecha.getTime()) ? null : fecha;
+  }
+
+  return null;
+}
+
+function formatearFechaSolicitudDashboard(fecha) {
+  if (!fecha) return '-';
+
+  const parsed = parsearFechaFlexible(fecha);
+  if (!parsed) return String(fecha);
+
+  return parsed.toLocaleDateString('es-MX', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+}
+
+function obtenerDashboardSolicitudesMock() {
+  const hoy = obtenerFechaSoloDia(new Date());
+
+  return [
+    { id: 0, Fecha: hoy, Solicitante: 'Kevin Gomez', D_extranjero: 'Tornillo especial de acero', Status: 'Nueva' },
+    { id: 0, Fecha: hoy, Solicitante: 'Administracion SAP', D_extranjero: 'Actualizacion de material', Status: 'Pendiente' },
+    { id: 0, Fecha: hoy, Solicitante: 'Compras', D_extranjero: 'Alta de empaque', Status: 'Seguimiento' },
+    { id: 0, Fecha: hoy, Solicitante: 'Ingenieria', D_extranjero: 'Cambio de revision', Status: 'Liberado' }
+  ];
+}
+
+function obtenerDashboardCodigosMock() {
+  const dias = obtenerUltimosDias(7);
+
+  return [
+    { 'Codigo Pixvs': 'M0010001', 'Fecha de ultimo Cambio': dias[6].key, Status: '2 - Local' },
+    { 'Codigo Pixvs': 'M0010002', 'Fecha de ultimo Cambio': dias[6].key, Status: '2 - Local' },
+    { 'Codigo Pixvs': 'A1000001', 'Fecha de ultimo Cambio': dias[5].key, Status: '3 - SAP' },
+    { 'Codigo Pixvs': 'B1200001', 'Fecha de ultimo Cambio': dias[4].key, Status: '2 - Local' },
+    { 'Codigo Pixvs': 'P1000001', 'Fecha de ultimo Cambio': dias[3].key, Status: '1 - Proceso' },
+    { 'Codigo Pixvs': 'P1000002', 'Fecha de ultimo Cambio': dias[2].key, Status: '1 - Proceso' },
+    { 'Codigo Pixvs': 'H1300001', 'Fecha de ultimo Cambio': dias[1].key, Status: '2 - Local' }
+  ];
+}
 
 function renderBuscador() {
   const viewer = document.getElementById('viewer');

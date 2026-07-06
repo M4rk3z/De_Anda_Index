@@ -64,6 +64,7 @@ window.renderSolicitudes = function renderSolicitudes() {
             <span>Filtrar por estatus</span>
             <select id="solicitudesFiltroStatus" onchange="cargarSolicitudes()">
               <option value="">Todos</option>
+              <option value="__nuevas_pendientes__">Nueva/Pendiente</option>
               <option value="Seguimiento">Seguimiento</option>
               <option value="Rechazo">Rechazo</option>
               <option value="Liberado">Liberado</option>
@@ -122,7 +123,9 @@ async function cargarSolicitudes() {
     .from('Solicitudes')
     .select('id,Folio,Fecha,Solicitante,D_extranjero,Status,Motivo_Rechazo');
 
-  if (filtroStatus) {
+  if (filtroStatus === '__nuevas_pendientes__') {
+    consulta = consulta.in('Status', ['Nueva', 'Pendiente', 'Seguimiento']);
+  } else if (filtroStatus) {
     consulta = consulta.eq('Status', filtroStatus);
   }
 
@@ -136,7 +139,9 @@ async function cargarSolicitudes() {
       .from('Solicitudes')
       .select('id,Folio,Fecha,Solicitante,D_extranjero,Status');
 
-    if (filtroStatus) {
+    if (filtroStatus === '__nuevas_pendientes__') {
+      consultaRespaldo = consultaRespaldo.in('Status', ['Nueva', 'Pendiente', 'Seguimiento']);
+    } else if (filtroStatus) {
       consultaRespaldo = consultaRespaldo.eq('Status', filtroStatus);
     }
 
@@ -157,7 +162,7 @@ async function cargarSolicitudes() {
 
   if (!data || data.length === 0) {
     status.textContent = filtroStatus
-      ? `No hay solicitudes con estatus ${filtroStatus}.`
+      ? `No hay solicitudes con estatus ${obtenerEtiquetaFiltroSolicitudes(filtroStatus)}.`
       : 'No hay solicitudes registradas.';
     tbody.innerHTML = `
       <tr>
@@ -168,7 +173,7 @@ async function cargarSolicitudes() {
   }
 
   status.textContent = filtroStatus
-    ? `Solicitudes con estatus ${filtroStatus}: ${data.length}`
+    ? `Solicitudes con estatus ${obtenerEtiquetaFiltroSolicitudes(filtroStatus)}: ${data.length}`
     : `Solicitudes registradas: ${data.length}`;
 
   if (!motivoRechazoDisponible) {
@@ -226,6 +231,14 @@ function formatearFechaSolicitud(fecha) {
   if (partes.length !== 3) return fecha;
 
   return `${partes[2]}/${partes[1]}/${partes[0]}`;
+}
+
+function obtenerEtiquetaFiltroSolicitudes(filtroStatus) {
+  if (filtroStatus === '__nuevas_pendientes__') {
+    return 'Nueva/Pendiente';
+  }
+
+  return filtroStatus;
 }
 
 function obtenerFechaLocalSolicitud() {

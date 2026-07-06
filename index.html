@@ -10,7 +10,7 @@
 
     <link rel="icon" type="image/png" href="assets/de-anda-logo-nb.png?v=20260706-1">
     <link rel="apple-touch-icon" href="assets/de-anda-logo-nb.png?v=20260706-1">
-    <link rel="stylesheet" href="styles.css?v=20260703-1">
+    <link rel="stylesheet" href="styles.css?v=20260706-1">
   </head>
 
   <body>
@@ -53,6 +53,7 @@
           </button>
 
           <nav id="sideMenu" class="side-menu open">
+            <button data-section="bienvenida" onclick="showSection('bienvenida')">Inicio</button>
             <button data-section="buscador" onclick="showSection('buscador')">Buscador</button>
             <button data-section="nuevoCodigo" onclick="showSection('nuevoCodigo')">Nuevo Codigo</button>
             <button data-section="panelControl" onclick="showSection('panelControl')">Panel de control</button>
@@ -72,7 +73,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="scripts.js?v=20260703-2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="scripts.js?v=20260706-1"></script>
     <script src="nuevoCodigo.js?v=20260703-1"></script>
     <script src="panel.js?v=20260703-2"></script>
     <script src="solicitudesNivelCompleto.js?v=20260703-1"></script>

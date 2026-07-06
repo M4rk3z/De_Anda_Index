@@ -2237,3 +2237,227 @@ select option.option-sin-relacion:disabled {
     animation: none;
   }
 }
+
+/* Dashboard Inicio */
+
+.dashboard-home {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.dashboard-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border: 1px solid var(--sap-border);
+  border-left: 5px solid var(--sap-blue);
+  border-radius: 6px;
+  background: linear-gradient(135deg, #ffffff 0%, #f3f8fd 100%);
+  box-shadow: var(--sap-shadow);
+}
+
+.dashboard-hero h2 {
+  margin: 0 0 4px;
+  color: var(--sap-navy);
+  font-size: 24px;
+}
+
+.dashboard-hero p {
+  margin: 0;
+  color: var(--sap-muted);
+}
+
+.dashboard-primary-action,
+.dashboard-review-button {
+  min-height: 38px;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--sap-blue);
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dashboard-primary-action:hover,
+.dashboard-review-button:hover {
+  background: var(--sap-blue-dark);
+}
+
+.dashboard-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+.dashboard-kpi-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--sap-border-soft);
+  border-top: 3px solid var(--sap-blue);
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: var(--sap-shadow);
+}
+
+.dashboard-kpi-card span {
+  color: var(--sap-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dashboard-kpi-card strong {
+  color: var(--sap-navy);
+  font-size: 30px;
+  line-height: 1;
+}
+
+.dashboard-charts-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.8fr);
+  gap: 16px;
+}
+
+.dashboard-panel {
+  min-width: 0;
+  border: 1px solid var(--sap-border-soft);
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: var(--sap-shadow);
+}
+
+.dashboard-panel-wide,
+.dashboard-panel-full {
+  min-height: 330px;
+}
+
+.dashboard-panel-full {
+  grid-column: 1 / -1;
+}
+
+.dashboard-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--sap-border-soft);
+  background: #f8fbfe;
+}
+
+.dashboard-panel-header h3 {
+  margin: 0;
+  color: var(--sap-navy);
+  font-size: 16px;
+}
+
+.dashboard-panel-header span {
+  color: var(--sap-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dashboard-chart-box {
+  position: relative;
+  min-height: 270px;
+  padding: 16px;
+}
+
+.dashboard-chart-box-short {
+  min-height: 240px;
+}
+
+.dashboard-chart-fallback {
+  display: grid;
+  min-height: 120px;
+  place-items: center;
+  color: var(--sap-muted);
+  font-weight: 700;
+}
+
+.dashboard-table-scroll {
+  border: 0;
+  border-radius: 0 0 6px 6px;
+}
+
+.dashboard-table th,
+.dashboard-table td {
+  vertical-align: middle;
+}
+
+.dashboard-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dashboard-status-badge::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.dashboard-status-nueva {
+  background: #eaf3fc;
+  color: var(--sap-blue);
+}
+
+.dashboard-status-pendiente {
+  background: #fff4e5;
+  color: var(--sap-warning);
+}
+
+.dashboard-status-liberado {
+  background: #e7f4ed;
+  color: var(--sap-success);
+}
+
+.dashboard-status-rechazo {
+  background: #fdeaea;
+  color: var(--sap-danger);
+}
+
+@media (max-width: 1180px) {
+  .dashboard-kpi-grid {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+
+  .dashboard-charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .dashboard-hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-primary-action {
+    width: 100%;
+  }
+
+  .dashboard-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-panel-wide,
+  .dashboard-panel-full {
+    min-height: auto;
+  }
+
+  .dashboard-chart-box {
+    min-height: 230px;
+  }
+}

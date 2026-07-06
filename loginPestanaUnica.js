@@ -265,10 +265,7 @@ function entrarAlSistema() {
   aplicarPermisosNavegacion();
 
   if (viewer) {
-    viewer.innerHTML = `
-      <h2>Bienvenido, ${escapeHtml(nombreUsuario)}</h2>
-      <p>Acceso correcto. Selecciona una opcion del menu para continuar.</p>
-    `;
+    showSection('bienvenida');
   }
 }
 
