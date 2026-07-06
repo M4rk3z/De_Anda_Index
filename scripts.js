@@ -207,16 +207,6 @@ function renderDashboardInicio() {
           </div>
         </section>
 
-        <section class="dashboard-panel dashboard-panel-full">
-          <div class="dashboard-panel-header">
-            <h3>Altas recientes</h3>
-            <span>Ultimos 7 dias</span>
-          </div>
-          <div class="dashboard-chart-box dashboard-chart-box-short">
-            <canvas id="dashboardAltasRecientesChart"></canvas>
-            <p id="dashboardAltasRecientesFallback" class="dashboard-chart-fallback"></p>
-          </div>
-        </section>
       </div>
 
       <section class="dashboard-panel">
@@ -243,8 +233,6 @@ function renderDashboardInicio() {
           </table>
         </div>
       </section>
-
-      <div id="dashboardStatus" class="status-box">Cargando resumen...</div>
     </div>
   `;
 
@@ -261,8 +249,6 @@ function renderDashboardKpiCard(titulo, valor, id) {
 }
 
 async function cargarDashboardInicio() {
-  const status = document.getElementById('dashboardStatus');
-
   try {
     const [solicitudesResult, codigosResult, gruposResult] = await Promise.all([
       cargarDashboardSolicitudes(),
@@ -273,16 +259,9 @@ async function cargarDashboardInicio() {
     const solicitudes = solicitudesResult.data || [];
     const codigos = codigosResult.data || [];
     const grupos = gruposResult.data || [];
-    const usaMock = solicitudesResult.mock || codigosResult.mock || gruposResult.mock;
 
     const resumen = construirDashboardResumen(solicitudes, codigos, grupos);
     pintarDashboardResumen(resumen);
-
-    if (status) {
-      status.textContent = usaMock
-        ? 'Datos temporales cargados. Listo para conectar mas fuentes.'
-        : 'Resumen actualizado correctamente.';
-    }
   } catch (error) {
     console.error(error);
     const resumen = construirDashboardResumen(
@@ -291,10 +270,6 @@ async function cargarDashboardInicio() {
       obtenerDashboardGruposMock()
     );
     pintarDashboardResumen(resumen);
-
-    if (status) {
-      status.textContent = 'No fue posible leer datos reales. Se muestran datos temporales.';
-    }
   }
 }
 
@@ -357,7 +332,6 @@ async function cargarDashboardGrupos() {
 function construirDashboardResumen(solicitudes, codigos, grupos = []) {
   const hoy = obtenerFechaSoloDia(new Date());
   const inicioSemana = obtenerInicioSemana(new Date());
-  const ultimos7Dias = obtenerUltimosDias(7);
 
   const solicitudesNuevas = solicitudes.filter(solicitudEsNuevaPendiente);
   const solicitudesPendientes = solicitudes.filter(solicitudEsPendiente);
@@ -380,12 +354,6 @@ function construirDashboardResumen(solicitudes, codigos, grupos = []) {
     },
     codigosPorGrupo: contarPorGrupoCodigo(codigos, grupos),
     solicitudesPorEstado: contarPorEstadoSolicitud(solicitudes),
-    altasRecientes: ultimos7Dias.map(dia => ({
-      label: dia.label,
-      value: codigos.filter(item => (
-        obtenerFechaSoloDia(parsearFechaFlexible(item['Fecha de ultimo Cambio'])) === dia.key
-      )).length
-    })),
     ultimasSolicitudes: solicitudes.slice(0, 8)
   };
 }
@@ -411,19 +379,6 @@ function pintarDashboardResumen(resumen) {
       labels: resumen.codigosPorGrupo.map(item => item.label),
       data: resumen.codigosPorGrupo.map(item => item.value),
       backgroundColor: resumen.codigosPorGrupo.map(item => item.color)
-    }
-  );
-
-  renderDashboardChart(
-    'dashboardAltasRecientesChart',
-    'dashboardAltasRecientesFallback',
-    {
-      type: 'line',
-      labels: resumen.altasRecientes.map(item => item.label),
-      data: resumen.altasRecientes.map(item => item.value),
-      label: 'Altas',
-      backgroundColor: 'rgba(10, 110, 209, 0.16)',
-      borderColor: '#0a6ed1'
     }
   );
 
