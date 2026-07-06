@@ -8,6 +8,26 @@ const supabaseClient = supabase.createClient(
 
 let dashboardCharts = [];
 
+const DASHBOARD_GRUPOS_BASE = [
+  { Id: 'A', Grupo: 'P.T.AVICOLA' },
+  { Id: 'V', Grupo: 'P.T.PLANTAS DE ALIMENTOS' },
+  { Id: 'E', Grupo: 'P.T.ESTRUCTURA' },
+  { Id: 'T', Grupo: 'P.T.TRANSPORTE' },
+  { Id: 'P', Grupo: 'P.T.PORCICOLA' },
+  { Id: 'G', Grupo: 'P.T.GANADERIA' },
+  { Id: 'X', Grupo: 'P.T.ESTANTERIA' },
+  { Id: 'Q', Grupo: 'P.T.MAQUILA' },
+  { Id: 'N', Grupo: 'P.T.INVERNADERO' },
+  { Id: 'M', Grupo: 'MATERIA PRIMA' },
+  { Id: 'C', Grupo: 'CONSUMIBLES' },
+  { Id: 'B', Grupo: 'BIENES DE CONSUMO' },
+  { Id: 'S', Grupo: 'SERVICIO' },
+  { Id: 'K', Grupo: 'EMPAQUE' },
+  { Id: 'H', Grupo: 'HERRAMIENTA' },
+  { Id: 'L', Grupo: 'IMPORTACIONES' },
+  { Id: 'Z', Grupo: 'ACTIVOS' }
+];
+
 const ACCESOS_POR_SECCION = {
   bienvenida: [0, 1, 2],
   buscador: [0, 1, 2],
@@ -326,7 +346,7 @@ async function cargarDashboardGrupos() {
     return { data: obtenerDashboardGruposMock(), mock: true };
   }
 
-  return { data, mock: false };
+  return { data: combinarDashboardGrupos(data), mock: false };
 }
 
 function construirDashboardResumen(solicitudes, codigos, grupos = []) {
@@ -598,6 +618,7 @@ function solicitudEsPendiente(solicitud) {
 function contarPorGrupoCodigo(codigos, grupos = []) {
   const contador = new Map();
   const gruposPorId = new Map();
+  const ordenPorId = new Map();
   const colores = [
     '#0a6ed1',
     '#14a7c7',
@@ -610,6 +631,10 @@ function contarPorGrupoCodigo(codigos, grupos = []) {
     '#2563eb',
     '#ca8a04'
   ];
+
+  DASHBOARD_GRUPOS_BASE.forEach((grupo, index) => {
+    ordenPorId.set(grupo.Id, index);
+  });
 
   (grupos || []).forEach(grupo => {
     const id = String(grupo.ID || grupo.Id || grupo.id || '').trim().toUpperCase();
@@ -633,7 +658,10 @@ function contarPorGrupoCodigo(codigos, grupos = []) {
       value,
       color: colores[index % colores.length]
     }))
-    .sort((a, b) => b.value - a.value)
+    .sort((a, b) => (
+      b.value - a.value
+      || (ordenPorId.get(a.id) ?? 999) - (ordenPorId.get(b.id) ?? 999)
+    ))
     .map((item, index) => ({
       ...item,
       color: colores[index % colores.length]
@@ -746,14 +774,27 @@ function obtenerDashboardCodigosMock() {
   ];
 }
 
+function combinarDashboardGrupos(gruposSupabase = []) {
+  const porId = new Map();
+
+  DASHBOARD_GRUPOS_BASE.forEach(grupo => {
+    porId.set(grupo.Id, grupo);
+  });
+
+  (gruposSupabase || []).forEach(grupo => {
+    const id = String(grupo.Id || grupo.ID || grupo.id || '').trim().toUpperCase();
+    const nombre = String(grupo.Grupo || '').trim();
+
+    if (id && nombre) {
+      porId.set(id, { Id: id, Grupo: nombre });
+    }
+  });
+
+  return Array.from(porId.values());
+}
+
 function obtenerDashboardGruposMock() {
-  return [
-    { ID: 'M', Grupo: 'MATERIA PRIMA' },
-    { ID: 'A', Grupo: 'P.T.AVICOLA' },
-    { ID: 'B', Grupo: 'P.T.PLANTAS DE ALIMENTOS' },
-    { ID: 'P', Grupo: 'PRODUCTO TERMINADO' },
-    { ID: 'H', Grupo: 'HERRAMIENTA' }
-  ];
+  return DASHBOARD_GRUPOS_BASE;
 }
 
 function renderBuscador() {
