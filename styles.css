@@ -2363,12 +2363,23 @@ select option.option-sin-relacion:disabled {
 
 .dashboard-chart-box {
   position: relative;
-  min-height: 270px;
+  height: 270px;
+  min-height: 0;
+  overflow: hidden;
   padding: 16px;
 }
 
 .dashboard-chart-box-short {
-  min-height: 240px;
+  height: 240px;
+  min-height: 0;
+}
+
+.dashboard-chart-box canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .dashboard-chart-fallback {
@@ -2458,6 +2469,6 @@ select option.option-sin-relacion:disabled {
   }
 
   .dashboard-chart-box {
-    min-height: 230px;
+    height: 230px;
   }
 }

@@ -471,10 +471,17 @@ function construirChartConfig(config) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      resizeDelay: 180,
+      animation: false,
+      cutout: config.type === 'doughnut' ? '62%' : undefined,
       plugins: {
         legend: {
           display: config.type === 'doughnut',
           position: 'bottom'
+        },
+        tooltip: {
+          mode: 'index',
+          intersect: false
         }
       },
       scales: config.type === 'doughnut' ? {} : {
