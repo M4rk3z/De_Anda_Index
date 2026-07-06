@@ -189,20 +189,21 @@ function renderDashboardInicio() {
         <section class="dashboard-panel dashboard-panel-wide">
           <div class="dashboard-panel-header">
             <h3>Codigos por grupo</h3>
+            <span id="dashboardCodigosGrupoTotal">Total: 0</span>
           </div>
-          <div class="dashboard-chart-box">
-            <canvas id="dashboardCodigosGrupoChart"></canvas>
-            <p id="dashboardCodigosGrupoFallback" class="dashboard-chart-fallback"></p>
+          <div id="dashboardCodigosGrupoLista" class="dashboard-group-list">
+            <p class="dashboard-chart-fallback">Cargando grupos...</p>
           </div>
         </section>
 
         <section class="dashboard-panel">
           <div class="dashboard-panel-header">
-            <h3>Solicitudes por estado</h3>
+            <h3>Distribucion por grupo</h3>
+            <span id="dashboardCodigosGrupoDonaTotal">Total: 0</span>
           </div>
           <div class="dashboard-chart-box">
-            <canvas id="dashboardSolicitudesEstadoChart"></canvas>
-            <p id="dashboardSolicitudesEstadoFallback" class="dashboard-chart-fallback"></p>
+            <canvas id="dashboardCodigosGrupoDonaChart"></canvas>
+            <p id="dashboardCodigosGrupoDonaFallback" class="dashboard-chart-fallback"></p>
           </div>
         </section>
 
@@ -263,16 +264,18 @@ async function cargarDashboardInicio() {
   const status = document.getElementById('dashboardStatus');
 
   try {
-    const [solicitudesResult, codigosResult] = await Promise.all([
+    const [solicitudesResult, codigosResult, gruposResult] = await Promise.all([
       cargarDashboardSolicitudes(),
-      cargarDashboardCodigos()
+      cargarDashboardCodigos(),
+      cargarDashboardGrupos()
     ]);
 
     const solicitudes = solicitudesResult.data || [];
     const codigos = codigosResult.data || [];
-    const usaMock = solicitudesResult.mock || codigosResult.mock;
+    const grupos = gruposResult.data || [];
+    const usaMock = solicitudesResult.mock || codigosResult.mock || gruposResult.mock;
 
-    const resumen = construirDashboardResumen(solicitudes, codigos);
+    const resumen = construirDashboardResumen(solicitudes, codigos, grupos);
     pintarDashboardResumen(resumen);
 
     if (status) {
@@ -284,7 +287,8 @@ async function cargarDashboardInicio() {
     console.error(error);
     const resumen = construirDashboardResumen(
       obtenerDashboardSolicitudesMock(),
-      obtenerDashboardCodigosMock()
+      obtenerDashboardCodigosMock(),
+      obtenerDashboardGruposMock()
     );
     pintarDashboardResumen(resumen);
 
@@ -332,7 +336,24 @@ async function cargarDashboardCodigos() {
   return { data, mock: false };
 }
 
-function construirDashboardResumen(solicitudes, codigos) {
+async function cargarDashboardGrupos() {
+  if (!supabaseClient) {
+    return { data: obtenerDashboardGruposMock(), mock: true };
+  }
+
+  const { data, error } = await supabaseClient
+    .from('DT_Grupos')
+    .select('Grupo,ID')
+    .order('ID', { ascending: true });
+
+  if (error || !data || data.length === 0) {
+    return { data: obtenerDashboardGruposMock(), mock: true };
+  }
+
+  return { data, mock: false };
+}
+
+function construirDashboardResumen(solicitudes, codigos, grupos = []) {
   const hoy = obtenerFechaSoloDia(new Date());
   const inicioSemana = obtenerInicioSemana(new Date());
   const ultimos7Dias = obtenerUltimosDias(7);
@@ -356,7 +377,7 @@ function construirDashboardResumen(solicitudes, codigos) {
       codigosSemana: codigosSemana.length,
       pendientes: solicitudesPendientes.length
     },
-    codigosPorGrupo: contarPorGrupoCodigo(codigos),
+    codigosPorGrupo: contarPorGrupoCodigo(codigos, grupos),
     solicitudesPorEstado: contarPorEstadoSolicitud(solicitudes),
     altasRecientes: ultimos7Dias.map(dia => ({
       label: dia.label,
@@ -379,26 +400,16 @@ function pintarDashboardResumen(resumen) {
     boton.textContent = `Ver solicitudes nuevas (${resumen.kpis.nuevas})`;
   }
 
-  renderDashboardChart(
-    'dashboardCodigosGrupoChart',
-    'dashboardCodigosGrupoFallback',
-    {
-      type: 'bar',
-      labels: resumen.codigosPorGrupo.map(item => item.label),
-      data: resumen.codigosPorGrupo.map(item => item.value),
-      label: 'Codigos',
-      backgroundColor: '#0a6ed1'
-    }
-  );
+  renderDashboardCodigosGrupoLista(resumen.codigosPorGrupo);
 
   renderDashboardChart(
-    'dashboardSolicitudesEstadoChart',
-    'dashboardSolicitudesEstadoFallback',
+    'dashboardCodigosGrupoDonaChart',
+    'dashboardCodigosGrupoDonaFallback',
     {
       type: 'doughnut',
-      labels: resumen.solicitudesPorEstado.map(item => item.label),
-      data: resumen.solicitudesPorEstado.map(item => item.value),
-      backgroundColor: ['#0a6ed1', '#e9730c', '#107e3e', '#bb0000', '#6b7280']
+      labels: resumen.codigosPorGrupo.map(item => item.label),
+      data: resumen.codigosPorGrupo.map(item => item.value),
+      backgroundColor: resumen.codigosPorGrupo.map(item => item.color)
     }
   );
 
@@ -421,6 +432,49 @@ function pintarDashboardResumen(resumen) {
 function asignarTextoDashboard(id, valor) {
   const elemento = document.getElementById(id);
   if (elemento) elemento.textContent = String(valor);
+}
+
+function renderDashboardCodigosGrupoLista(grupos) {
+  const contenedor = document.getElementById('dashboardCodigosGrupoLista');
+  const totalLabel = document.getElementById('dashboardCodigosGrupoTotal');
+  const totalDonaLabel = document.getElementById('dashboardCodigosGrupoDonaTotal');
+
+  if (!contenedor) return;
+
+  const total = (grupos || []).reduce((sum, item) => sum + Number(item.value || 0), 0);
+
+  if (totalLabel) totalLabel.textContent = `Total: ${total}`;
+  if (totalDonaLabel) totalDonaLabel.textContent = `Total: ${total}`;
+
+  if (!grupos || grupos.length === 0 || total === 0) {
+    contenedor.innerHTML = '<p class="dashboard-chart-fallback">Sin codigos registrados por grupo.</p>';
+    return;
+  }
+
+  contenedor.innerHTML = grupos.map(item => {
+    const porcentaje = total > 0
+      ? Math.round((Number(item.value || 0) / total) * 100)
+      : 0;
+
+    return `
+      <div class="dashboard-group-row">
+        <div class="dashboard-group-main">
+          <span class="dashboard-group-dot" style="background:${escapeHtml(item.color)}"></span>
+          <div>
+            <strong>${escapeHtml(item.label)}</strong>
+            <small>ID ${escapeHtml(item.id)}</small>
+          </div>
+        </div>
+        <div class="dashboard-group-count">
+          <strong>${Number(item.value || 0)}</strong>
+          <span>${porcentaje}%</span>
+        </div>
+        <div class="dashboard-group-track" aria-hidden="true">
+          <span style="width:${porcentaje}%; background:${escapeHtml(item.color)}"></span>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 function renderDashboardChart(canvasId, fallbackId, config) {
@@ -585,8 +639,30 @@ function solicitudEsPendiente(solicitud) {
   return solicitudEsNuevaPendiente(solicitud) || status.includes('SEGUIMIENTO') || !status;
 }
 
-function contarPorGrupoCodigo(codigos) {
+function contarPorGrupoCodigo(codigos, grupos = []) {
   const contador = new Map();
+  const gruposPorId = new Map();
+  const colores = [
+    '#0a6ed1',
+    '#14a7c7',
+    '#107e3e',
+    '#e9730c',
+    '#7b61ff',
+    '#bb0000',
+    '#64748b',
+    '#0891b2',
+    '#2563eb',
+    '#ca8a04'
+  ];
+
+  (grupos || []).forEach(grupo => {
+    const id = String(grupo.ID || grupo.Id || '').trim().toUpperCase();
+    const nombre = String(grupo.Grupo || '').trim();
+
+    if (id && nombre) {
+      gruposPorId.set(id, nombre);
+    }
+  });
 
   (codigos || []).forEach(item => {
     const codigo = String(item['Codigo Pixvs'] || item['Codigo SAP'] || '').trim();
@@ -595,9 +671,17 @@ function contarPorGrupoCodigo(codigos) {
   });
 
   return Array.from(contador.entries())
-    .map(([label, value]) => ({ label, value }))
+    .map(([id, value], index) => ({
+      id,
+      label: gruposPorId.get(id) || `Grupo ${id}`,
+      value,
+      color: colores[index % colores.length]
+    }))
     .sort((a, b) => b.value - a.value)
-    .slice(0, 8);
+    .map((item, index) => ({
+      ...item,
+      color: colores[index % colores.length]
+    }));
 }
 
 function contarPorEstadoSolicitud(solicitudes) {
@@ -703,6 +787,16 @@ function obtenerDashboardCodigosMock() {
     { 'Codigo Pixvs': 'P1000001', 'Fecha de ultimo Cambio': dias[3].key, Status: '1 - Proceso' },
     { 'Codigo Pixvs': 'P1000002', 'Fecha de ultimo Cambio': dias[2].key, Status: '1 - Proceso' },
     { 'Codigo Pixvs': 'H1300001', 'Fecha de ultimo Cambio': dias[1].key, Status: '2 - Local' }
+  ];
+}
+
+function obtenerDashboardGruposMock() {
+  return [
+    { ID: 'M', Grupo: 'MATERIA PRIMA' },
+    { ID: 'A', Grupo: 'P.T.AVICOLA' },
+    { ID: 'B', Grupo: 'P.T.PLANTAS DE ALIMENTOS' },
+    { ID: 'P', Grupo: 'PRODUCTO TERMINADO' },
+    { ID: 'H', Grupo: 'HERRAMIENTA' }
   ];
 }
 
