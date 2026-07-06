@@ -323,11 +323,12 @@ async function cargarDashboardCodigos() {
     return { data: obtenerDashboardCodigosMock(), mock: true };
   }
 
-  const { data, error } = await supabaseClient
-    .from('BD_General')
-    .select('"Codigo Pixvs","Codigo SAP","Nombre Pixvs","Status","Fecha de ultimo Cambio"')
-    .order('Id', { ascending: false })
-    .limit(1000);
+  const { data, error } = await leerSupabasePaginado(
+    'BD_General',
+    '"Codigo Pixvs","Codigo SAP","Nombre Pixvs","Status","Fecha de ultimo Cambio"',
+    'Id',
+    false
+  );
 
   if (error || !data || data.length === 0) {
     return { data: obtenerDashboardCodigosMock(), mock: true };
@@ -343,8 +344,8 @@ async function cargarDashboardGrupos() {
 
   const { data, error } = await supabaseClient
     .from('DT_Grupos')
-    .select('Grupo,ID')
-    .order('ID', { ascending: true });
+    .select('Grupo,Id')
+    .order('Id', { ascending: true });
 
   if (error || !data || data.length === 0) {
     return { data: obtenerDashboardGruposMock(), mock: true };
@@ -656,7 +657,7 @@ function contarPorGrupoCodigo(codigos, grupos = []) {
   ];
 
   (grupos || []).forEach(grupo => {
-    const id = String(grupo.ID || grupo.Id || '').trim().toUpperCase();
+    const id = String(grupo.ID || grupo.Id || grupo.id || '').trim().toUpperCase();
     const nombre = String(grupo.Grupo || '').trim();
 
     if (id && nombre) {
