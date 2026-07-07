@@ -909,12 +909,12 @@ async function buscarMateriaPrima() {
       data,
       busquedaEspecial.valor,
       busquedaEspecial.columnas
-    ).slice(0, 1000)
+    )
     : filtrarRegistrosNormalizados(
       data,
       query,
       columnasBusqueda
-    ).slice(0, 1000);
+    );
 
   if (resultados.length === 0) {
     status.textContent = 'No se encontraron resultados.';
