@@ -320,7 +320,7 @@ async function cargarDashboardCodigos() {
 
   const { data, error } = await leerSupabasePaginado(
     'BD_General',
-    '"Codigo Pixvs","Codigo SAP","Nombre Pixvs","Status","Fecha de ultimo Cambio"',
+    '"Codigo SAP","Status","Fecha de ultimo Cambio"',
     'Id',
     false
   );
@@ -646,7 +646,7 @@ function contarPorGrupoCodigo(codigos, grupos = []) {
   });
 
   (codigos || []).forEach(item => {
-    const codigo = String(item['Codigo Pixvs'] || item['Codigo SAP'] || '').trim();
+    const codigo = String(item['Codigo SAP'] || '').trim();
     const grupo = codigo ? codigo.charAt(0).toUpperCase() : 'S/D';
     contador.set(grupo, (contador.get(grupo) || 0) + 1);
   });
@@ -764,13 +764,13 @@ function obtenerDashboardCodigosMock() {
   const dias = obtenerUltimosDias(7);
 
   return [
-    { 'Codigo Pixvs': 'M0010001', 'Fecha de ultimo Cambio': dias[6].key, Status: '2 - Local' },
-    { 'Codigo Pixvs': 'M0010002', 'Fecha de ultimo Cambio': dias[6].key, Status: '2 - Local' },
-    { 'Codigo Pixvs': 'A1000001', 'Fecha de ultimo Cambio': dias[5].key, Status: '3 - SAP' },
-    { 'Codigo Pixvs': 'B1200001', 'Fecha de ultimo Cambio': dias[4].key, Status: '2 - Local' },
-    { 'Codigo Pixvs': 'P1000001', 'Fecha de ultimo Cambio': dias[3].key, Status: '1 - Proceso' },
-    { 'Codigo Pixvs': 'P1000002', 'Fecha de ultimo Cambio': dias[2].key, Status: '1 - Proceso' },
-    { 'Codigo Pixvs': 'H1300001', 'Fecha de ultimo Cambio': dias[1].key, Status: '2 - Local' }
+    { 'Codigo SAP': 'M0010001', 'Fecha de ultimo Cambio': dias[6].key, Status: '2 - Local' },
+    { 'Codigo SAP': 'M0010002', 'Fecha de ultimo Cambio': dias[6].key, Status: '2 - Local' },
+    { 'Codigo SAP': 'A1000001', 'Fecha de ultimo Cambio': dias[5].key, Status: '3 - SAP' },
+    { 'Codigo SAP': 'B1200001', 'Fecha de ultimo Cambio': dias[4].key, Status: '2 - Local' },
+    { 'Codigo SAP': 'P1000001', 'Fecha de ultimo Cambio': dias[3].key, Status: '1 - Proceso' },
+    { 'Codigo SAP': 'P1000002', 'Fecha de ultimo Cambio': dias[2].key, Status: '1 - Proceso' },
+    { 'Codigo SAP': 'H1300001', 'Fecha de ultimo Cambio': dias[1].key, Status: '2 - Local' }
   ];
 }
 
