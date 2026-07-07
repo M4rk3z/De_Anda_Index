@@ -811,7 +811,7 @@ function renderBuscador() {
         <input
           id="buscadorInput"
           type="text"
-          placeholder="Ejemplo: tornillo, cable, M11F020007..."
+          placeholder="Ejemplo: tornillo, cable, M11F020007, M01*Codigo SAP..."
           onkeydown="onBuscadorKeydown(event)"
         >
 
@@ -903,11 +903,18 @@ async function buscarMateriaPrima() {
     return;
   }
 
-  const resultados = filtrarRegistrosNormalizados(
-    data,
-    query,
-    columnasBusqueda
-  ).slice(0, 1000);
+  const busquedaEspecial = obtenerBusquedaEspecialBuscador(query);
+  const resultados = busquedaEspecial
+    ? filtrarRegistrosPorInicioNormalizado(
+      data,
+      busquedaEspecial.valor,
+      busquedaEspecial.columnas
+    ).slice(0, 1000)
+    : filtrarRegistrosNormalizados(
+      data,
+      query,
+      columnasBusqueda
+    ).slice(0, 1000);
 
   if (resultados.length === 0) {
     status.textContent = 'No se encontraron resultados.';
@@ -921,7 +928,9 @@ async function buscarMateriaPrima() {
     return;
   }
 
-  status.textContent = `Resultados encontrados: ${resultados.length}`;
+  status.textContent = busquedaEspecial
+    ? `Resultados encontrados: ${resultados.length} | Filtro por inicio en ${busquedaEspecial.etiqueta}`
+    : `Resultados encontrados: ${resultados.length}`;
 
   tbody.innerHTML = resultados.map(item => `
     <tr>
@@ -1046,6 +1055,66 @@ function filtrarRegistrosNormalizados(rows, busqueda, columnas) {
   return (rows || []).filter(row => (
     columnas.some(columna => (
       normalizarTextoFlexible(row[columna]).includes(busquedaNormalizada)
+    ))
+  ));
+}
+
+function obtenerBusquedaEspecialBuscador(query) {
+  if (!query || !query.includes('*')) return null;
+
+  const partes = String(query).split('*');
+  if (partes.length < 2) return null;
+
+  const valor = partes.shift().trim();
+  const campo = partes.join('*').trim();
+
+  if (!valor || !campo) return null;
+
+  const campoNormalizado = normalizarTextoFlexible(campo);
+  const camposPorAlias = {
+    CODIGOSAP: {
+      etiqueta: 'Codigo SAP',
+      columnas: ['Codigo SAP']
+    },
+    CODIGOPIXVS: {
+      etiqueta: 'Codigo Pixvs',
+      columnas: ['Codigo Pixvs']
+    },
+    NOMBRESAP: {
+      etiqueta: 'Nombre SAP',
+      columnas: ['Nombre SAP']
+    },
+    NOMBREPIXVS: {
+      etiqueta: 'Nombre Pixvs',
+      columnas: ['Nombre Pixvs']
+    },
+    NOMBRE: {
+      etiqueta: 'Nombre Pixvs / Nombre SAP',
+      columnas: ['Nombre Pixvs', 'Nombre SAP']
+    },
+    CODIGO: {
+      etiqueta: 'Codigo Pixvs / Codigo SAP',
+      columnas: ['Codigo Pixvs', 'Codigo SAP']
+    }
+  };
+
+  const config = camposPorAlias[campoNormalizado];
+  if (!config) return null;
+
+  return {
+    valor,
+    etiqueta: config.etiqueta,
+    columnas: config.columnas
+  };
+}
+
+function filtrarRegistrosPorInicioNormalizado(rows, busqueda, columnas) {
+  const busquedaNormalizada = normalizarTextoFlexible(busqueda);
+  if (!busquedaNormalizada) return [];
+
+  return (rows || []).filter(row => (
+    columnas.some(columna => (
+      normalizarTextoFlexible(row[columna]).startsWith(busquedaNormalizada)
     ))
   ));
 }
