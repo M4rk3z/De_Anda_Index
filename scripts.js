@@ -31,6 +31,7 @@ const DASHBOARD_GRUPOS_BASE = [
 const ACCESOS_POR_SECCION = {
   bienvenida: [0, 1, 2],
   buscador: [0, 1, 2],
+  simuladorADN: [0, 1, 2],
   nuevoCodigo: [0, 1],
   panelControl: [0, 1],
   solicitudes: [0, 1, 2],
@@ -151,6 +152,11 @@ function showSection(section) {
 
   if (section === 'nuevoCodigo') {
     renderNuevoCodigo();
+    return;
+  }
+
+  if (section === 'simuladorADN') {
+    renderSimuladorADN();
     return;
   }
 

@@ -24,6 +24,8 @@ let nuevoCodigoRelaciones = {
   materiales: []
 };
 
+let nuevoCodigoModoSimulador = false;
+
 function esValorCatalogoValido(value) {
   const texto = String(value ?? '').trim().toLowerCase();
   return texto !== '' && texto !== 'null' && texto !== 'undefined';
@@ -77,19 +79,27 @@ function marcarOpcionSinRelacion(option, motivo = 'Sin relacion') {
  * RENDER PRINCIPAL
  *************************************************/
 
-function renderNuevoCodigo() {
-  if (!usuarioPuede(0, 1)) {
+function renderNuevoCodigo(opciones = {}) {
+  nuevoCodigoModoSimulador = Boolean(opciones.simulador);
+
+  if (!nuevoCodigoModoSimulador && !usuarioPuede(0, 1)) {
     mostrarAccesoDenegado();
     return;
   }
 
   const viewer = document.getElementById('viewer');
+  const titulo = nuevoCodigoModoSimulador
+    ? 'Simulador ADN'
+    : 'Registrar un nuevo codigo';
+  const descripcion = nuevoCodigoModoSimulador
+    ? 'Simula Grupo, Familia, Tipo y consecutivo sin guardar el codigo final.'
+    : 'Selecciona Grupo, Familia, Tipo para construir una nueva clave.';
 
   viewer.innerHTML = `
     <div class="nuevo-codigo-view">
       <div class="nuevo-codigo-header">
-        <h2>Registrar un nuevo codigo</h2>
-        <p>Selecciona Grupo, Familia, Tipo para construir una nueva clave.</p>
+        <h2>${titulo}</h2>
+        <p>${descripcion}</p>
       </div>
 
       <div class="nuevo-codigo-form">
@@ -140,9 +150,11 @@ function renderNuevoCodigo() {
       <div class="nuevo-codigo-actions">
         <button id="btnNuevoCodigoPrincipal" onclick="accionPrincipalNuevoCodigo()"></button>
 
-        <button onclick="guardarNuevoCodigoMateriaPrima()">
-          Guardar
-        </button>
+        ${nuevoCodigoModoSimulador ? '' : `
+          <button onclick="guardarNuevoCodigoMateriaPrima()">
+            Guardar
+          </button>
+        `}
 
         <button onclick="limpiarNuevoCodigo()">
           Limpiar
@@ -184,6 +196,10 @@ function renderNuevoCodigo() {
 
   cargarGruposNuevoCodigo();
   actualizarBotonPrincipalNuevoCodigo();
+}
+
+function renderSimuladorADN() {
+  renderNuevoCodigo({ simulador: true });
 }
 
 /*************************************************
@@ -766,6 +782,11 @@ function asignarConsecutivoNuevoCodigo(precodigo, consecutivoNumero, longitudCon
  *************************************************/
 
 async function guardarNuevoCodigoMateriaPrima() {
+  if (nuevoCodigoModoSimulador) {
+    setNuevoCodigoStatus('Simulacion lista. Este modulo no guarda codigos.');
+    return;
+  }
+
   if (!usuarioPuede(0, 1)) {
     mostrarAccesoDenegado();
     return;
