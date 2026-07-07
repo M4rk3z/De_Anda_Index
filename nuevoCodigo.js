@@ -92,14 +92,14 @@ function renderNuevoCodigo(opciones = {}) {
     ? 'Simulador ADN'
     : 'Registrar un nuevo codigo';
   const descripcion = nuevoCodigoModoSimulador
-    ? 'Simula Grupo, Familia, Tipo y consecutivo sin guardar el codigo final.'
+    ? ''
     : 'Selecciona Grupo, Familia, Tipo para construir una nueva clave.';
 
   viewer.innerHTML = `
     <div class="nuevo-codigo-view">
       <div class="nuevo-codigo-header">
         <h2>${titulo}</h2>
-        <p>${descripcion}</p>
+        ${descripcion ? `<p>${descripcion}</p>` : ''}
       </div>
 
       <div class="nuevo-codigo-form">
