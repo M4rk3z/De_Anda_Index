@@ -63,12 +63,8 @@ window.renderSolicitudes = function renderSolicitudes() {
           <label class="solicitudes-filter" for="solicitudesFiltroStatus">
             <span>Filtrar por estatus</span>
             <select id="solicitudesFiltroStatus" onchange="cargarSolicitudes()">
-              <option value="__activas__" selected>Activas</option>
-              <option value="">Todos</option>
-              <option value="__nuevas_pendientes__">Nueva/Pendiente</option>
-              <option value="Seguimiento">Seguimiento</option>
+              <option value="Seguimiento" selected>Seguimiento</option>
               <option value="Rechazo">Rechazo</option>
-              <option value="Rechazado">Rechazado</option>
               <option value="Liberado">Liberado</option>
             </select>
           </label>
@@ -107,7 +103,7 @@ window.renderSolicitudes = function renderSolicitudes() {
 async function cargarSolicitudes() {
   const status = document.getElementById('solicitudesStatus');
   const tbody = document.getElementById('solicitudesResultados');
-  const filtroStatus = document.getElementById('solicitudesFiltroStatus')?.value || '__activas__';
+  const filtroStatus = document.getElementById('solicitudesFiltroStatus')?.value || 'Seguimiento';
   const puedeSeguimiento = puedeDarSeguimientoSolicitudes();
   const puedeSolicitarCambio = usuarioPuedeEnSolicitudes(0, 2);
   const columnas = 6;
@@ -125,7 +121,9 @@ async function cargarSolicitudes() {
     .from('Solicitudes')
     .select('id,Folio,Fecha,Solicitante,D_extranjero,Status,Motivo_Rechazo');
 
-  if (filtroStatus === '__nuevas_pendientes__') {
+  if (filtroStatus === 'Rechazo') {
+    consulta = consulta.in('Status', ['Rechazo', 'Rechazado']);
+  } else if (filtroStatus === '__nuevas_pendientes__') {
     consulta = consulta.in('Status', ['Nueva', 'Pendiente', 'Seguimiento']);
   } else if (filtroStatus && filtroStatus !== '__activas__') {
     consulta = consulta.eq('Status', filtroStatus);
@@ -141,7 +139,9 @@ async function cargarSolicitudes() {
       .from('Solicitudes')
       .select('id,Folio,Fecha,Solicitante,D_extranjero,Status');
 
-    if (filtroStatus === '__nuevas_pendientes__') {
+    if (filtroStatus === 'Rechazo') {
+      consultaRespaldo = consultaRespaldo.in('Status', ['Rechazo', 'Rechazado']);
+    } else if (filtroStatus === '__nuevas_pendientes__') {
       consultaRespaldo = consultaRespaldo.in('Status', ['Nueva', 'Pendiente', 'Seguimiento']);
     } else if (filtroStatus && filtroStatus !== '__activas__') {
       consultaRespaldo = consultaRespaldo.eq('Status', filtroStatus);

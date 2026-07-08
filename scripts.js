@@ -597,7 +597,7 @@ function irSolicitudesNuevasPendientes() {
   setTimeout(() => {
     const filtro = document.getElementById('solicitudesFiltroStatus');
     if (filtro) {
-      filtro.value = '__nuevas_pendientes__';
+      filtro.value = 'Seguimiento';
       cargarSolicitudes();
     }
   }, 0);
