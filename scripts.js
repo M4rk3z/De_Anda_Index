@@ -380,7 +380,7 @@ function construirDashboardResumen(solicitudes, codigos, grupos = []) {
     },
     codigosPorGrupo: contarPorGrupoCodigo(codigos, grupos),
     solicitudesPorEstado: contarPorEstadoSolicitud(solicitudes),
-    ultimasSolicitudes: solicitudes.slice(0, 8)
+    ultimasSolicitudes: solicitudes.slice(0, 3)
   };
 }
 
