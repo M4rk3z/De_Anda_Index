@@ -63,10 +63,12 @@ window.renderSolicitudes = function renderSolicitudes() {
           <label class="solicitudes-filter" for="solicitudesFiltroStatus">
             <span>Filtrar por estatus</span>
             <select id="solicitudesFiltroStatus" onchange="cargarSolicitudes()">
+              <option value="__activas__" selected>Activas</option>
               <option value="">Todos</option>
               <option value="__nuevas_pendientes__">Nueva/Pendiente</option>
               <option value="Seguimiento">Seguimiento</option>
               <option value="Rechazo">Rechazo</option>
+              <option value="Rechazado">Rechazado</option>
               <option value="Liberado">Liberado</option>
             </select>
           </label>
@@ -105,7 +107,7 @@ window.renderSolicitudes = function renderSolicitudes() {
 async function cargarSolicitudes() {
   const status = document.getElementById('solicitudesStatus');
   const tbody = document.getElementById('solicitudesResultados');
-  const filtroStatus = document.getElementById('solicitudesFiltroStatus')?.value || '';
+  const filtroStatus = document.getElementById('solicitudesFiltroStatus')?.value || '__activas__';
   const puedeSeguimiento = puedeDarSeguimientoSolicitudes();
   const puedeSolicitarCambio = usuarioPuedeEnSolicitudes(0, 2);
   const columnas = 6;
@@ -125,7 +127,7 @@ async function cargarSolicitudes() {
 
   if (filtroStatus === '__nuevas_pendientes__') {
     consulta = consulta.in('Status', ['Nueva', 'Pendiente', 'Seguimiento']);
-  } else if (filtroStatus) {
+  } else if (filtroStatus && filtroStatus !== '__activas__') {
     consulta = consulta.eq('Status', filtroStatus);
   }
 
@@ -141,7 +143,7 @@ async function cargarSolicitudes() {
 
     if (filtroStatus === '__nuevas_pendientes__') {
       consultaRespaldo = consultaRespaldo.in('Status', ['Nueva', 'Pendiente', 'Seguimiento']);
-    } else if (filtroStatus) {
+    } else if (filtroStatus && filtroStatus !== '__activas__') {
       consultaRespaldo = consultaRespaldo.eq('Status', filtroStatus);
     }
 
@@ -159,6 +161,8 @@ async function cargarSolicitudes() {
     `;
     return;
   }
+
+  data = filtrarSolicitudesPorFiltroStatus(data || [], filtroStatus);
 
   if (!data || data.length === 0) {
     status.textContent = filtroStatus
@@ -234,11 +238,29 @@ function formatearFechaSolicitud(fecha) {
 }
 
 function obtenerEtiquetaFiltroSolicitudes(filtroStatus) {
+  if (filtroStatus === '__activas__') {
+    return 'Activas';
+  }
+
   if (filtroStatus === '__nuevas_pendientes__') {
     return 'Nueva/Pendiente';
   }
 
   return filtroStatus;
+}
+
+function filtrarSolicitudesPorFiltroStatus(data, filtroStatus) {
+  if (filtroStatus !== '__activas__') {
+    return data;
+  }
+
+  return (data || []).filter(solicitud => {
+    const status = normalizarTextoFlexible(solicitud.Status);
+
+    return status !== 'RECHAZO'
+      && status !== 'RECHAZADO'
+      && status !== 'LIBERADO';
+  });
 }
 
 function obtenerFechaLocalSolicitud() {
