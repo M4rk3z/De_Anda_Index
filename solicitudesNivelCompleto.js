@@ -57,6 +57,10 @@ function puedeAdministrarSolicitudPropia(solicitud) {
   return esControlTotalSolicitudes() || esSolicitudPropia(solicitud);
 }
 
+function esSolicitudLiberada(solicitud) {
+  return normalizarTextoFlexible(solicitud?.Status || '') === 'LIBERADO';
+}
+
 const SOLICITUD_UNIDADES_MEDIDA = [
   ['PZA', 'PZA - Pieza'],
   ['KG', 'KG - Kilogramo'],
@@ -274,6 +278,7 @@ async function cargarSolicitudes() {
   solicitudesListadoRows = data;
   tbody.innerHTML = data.map((solicitud, index) => {
     const puedeAdministrar = puedeAdministrarSolicitudPropia(solicitud);
+    const puedeBorrar = puedeAdministrar && !esSolicitudLiberada(solicitud);
 
     return `
       <tr>
@@ -304,6 +309,9 @@ async function cargarSolicitudes() {
                 class="solicitud-change-button"
                 onclick="editarSolicitud(${Number(solicitud.id)})"
               >Editar</button>
+            ` : ''}
+
+            ${puedeBorrar ? `
               <button
                 type="button"
                 class="danger-button"
@@ -543,7 +551,7 @@ window.eliminarSolicitud = async function eliminarSolicitud(id) {
   const status = document.getElementById('solicitudesStatus');
   const { data: solicitud, error: consultaError } = await supabaseClient
     .from('Solicitudes')
-    .select('id,Folio,Solicitante')
+    .select('id,Folio,Solicitante,Status')
     .eq('id', id)
     .single();
 
@@ -559,6 +567,11 @@ window.eliminarSolicitud = async function eliminarSolicitud(id) {
 
   if (!puedeAdministrarSolicitudPropia(solicitud)) {
     mostrarAccesoDenegado();
+    return;
+  }
+
+  if (esSolicitudLiberada(solicitud)) {
+    if (status) status.textContent = 'No se puede borrar una solicitud liberada.';
     return;
   }
 
