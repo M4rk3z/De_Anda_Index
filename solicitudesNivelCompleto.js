@@ -5,6 +5,7 @@ let solicitudCambioPadre = null;
 let solicitudesListadoRows = [];
 let solicitudGuardadoEnProceso = false;
 let solicitudConfirmacionCallback = null;
+const SOLICITUD_LISTADO_LIMITE = 10;
 
 function usuarioPuedeEnSolicitudes(...nivelesPermitidos) {
   const nivel = normalizarNivelUsuario(localStorage.getItem('usuarioNivel'));
@@ -31,6 +32,19 @@ function obtenerIdentidadesUsuarioSolicitud() {
     .filter(Boolean)
     .map(valor => normalizarTextoFlexible(valor))
     .filter(Boolean);
+}
+
+function obtenerNombresUsuarioSolicitud() {
+  const nombres = [
+    localStorage.getItem('usuarioNombre'),
+    localStorage.getItem('usuarioActivo'),
+    obtenerNombreUsuarioVisible()
+  ]
+    .filter(Boolean)
+    .map(valor => String(valor).trim())
+    .filter(Boolean);
+
+  return Array.from(new Set(nombres));
 }
 
 function esSolicitudPropia(solicitud) {
@@ -144,9 +158,23 @@ async function cargarSolicitudes() {
 
   status.textContent = 'Cargando solicitudes...';
 
+  const nombresUsuario = obtenerNombresUsuarioSolicitud();
+
+  if (nombresUsuario.length === 0) {
+    status.textContent = 'No se encontro el usuario de la sesion.';
+    solicitudesListadoRows = [];
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="${columnas}">Sin solicitudes registradas todavia.</td>
+      </tr>
+    `;
+    return;
+  }
+
   let consulta = supabaseClient
     .from('Solicitudes')
-    .select('id,Folio,Fecha,Solicitante,D_extranjero,Status,Motivo_Rechazo');
+    .select('id,Folio,Fecha,Solicitante,D_extranjero,Status,Motivo_Rechazo')
+    .in('Solicitante', nombresUsuario);
 
   if (filtroStatus === 'Rechazo') {
     consulta = consulta.in('Status', ['Rechazo', 'Rechazado']);
@@ -156,7 +184,9 @@ async function cargarSolicitudes() {
     consulta = consulta.eq('Status', filtroStatus);
   }
 
-  let { data, error } = await consulta.order('id', { ascending: false });
+  let { data, error } = await consulta
+    .order('id', { ascending: false })
+    .limit(SOLICITUD_LISTADO_LIMITE);
   let motivoRechazoDisponible = true;
 
   if (error && String(error.message || '').includes('Motivo_Rechazo')) {
@@ -164,7 +194,8 @@ async function cargarSolicitudes() {
 
     let consultaRespaldo = supabaseClient
       .from('Solicitudes')
-      .select('id,Folio,Fecha,Solicitante,D_extranjero,Status');
+      .select('id,Folio,Fecha,Solicitante,D_extranjero,Status')
+      .in('Solicitante', nombresUsuario);
 
     if (filtroStatus === 'Rechazo') {
       consultaRespaldo = consultaRespaldo.in('Status', ['Rechazo', 'Rechazado']);
@@ -174,7 +205,9 @@ async function cargarSolicitudes() {
       consultaRespaldo = consultaRespaldo.eq('Status', filtroStatus);
     }
 
-    const resultadoRespaldo = await consultaRespaldo.order('id', { ascending: false });
+    const resultadoRespaldo = await consultaRespaldo
+      .order('id', { ascending: false })
+      .limit(SOLICITUD_LISTADO_LIMITE);
     data = resultadoRespaldo.data;
     error = resultadoRespaldo.error;
   }
@@ -189,12 +222,14 @@ async function cargarSolicitudes() {
     return;
   }
 
-  data = filtrarSolicitudesPorFiltroStatus(data || [], filtroStatus);
+  data = filtrarSolicitudesPorFiltroStatus(data || [], filtroStatus)
+    .filter(esSolicitudPropia)
+    .slice(0, SOLICITUD_LISTADO_LIMITE);
 
   if (!data || data.length === 0) {
     status.textContent = filtroStatus
-      ? `No hay solicitudes con estatus ${obtenerEtiquetaFiltroSolicitudes(filtroStatus)}.`
-      : 'No hay solicitudes registradas.';
+      ? `No tienes solicitudes con estatus ${obtenerEtiquetaFiltroSolicitudes(filtroStatus)}.`
+      : 'No tienes solicitudes registradas.';
     tbody.innerHTML = `
       <tr>
         <td colspan="${columnas}">Sin solicitudes registradas todavia.</td>
@@ -204,8 +239,8 @@ async function cargarSolicitudes() {
   }
 
   status.textContent = filtroStatus
-    ? `Solicitudes con estatus ${obtenerEtiquetaFiltroSolicitudes(filtroStatus)}: ${data.length}`
-    : `Solicitudes registradas: ${data.length}`;
+    ? `Tus solicitudes con estatus ${obtenerEtiquetaFiltroSolicitudes(filtroStatus)}: ${data.length}`
+    : `Tus solicitudes registradas: ${data.length}`;
 
   if (!motivoRechazoDisponible) {
     status.textContent += ' | Falta crear la columna Motivo_Rechazo en Supabase.';
