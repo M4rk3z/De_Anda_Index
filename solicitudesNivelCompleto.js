@@ -23,6 +23,10 @@ function esControlTotalSolicitudes() {
   return normalizarNivelUsuario(localStorage.getItem('usuarioNivel')) === 0;
 }
 
+function esUsuarioNivelDosSolicitudes() {
+  return normalizarNivelUsuario(localStorage.getItem('usuarioNivel')) === 2;
+}
+
 function obtenerIdentidadesUsuarioSolicitud() {
   return [
     localStorage.getItem('usuarioNombre'),
@@ -95,6 +99,7 @@ window.renderSolicitudes = function renderSolicitudes() {
   if (!viewer) return;
 
   const puedeCrear = usuarioPuedeEnSolicitudes(0, 2);
+  const mostrarFiltroStatus = !esUsuarioNivelDosSolicitudes();
 
   viewer.innerHTML = `
     <div class="catalog-wrapper solicitudes-wrapper">
@@ -105,14 +110,16 @@ window.renderSolicitudes = function renderSolicitudes() {
 
       <div class="solicitudes-panel">
         <div class="solicitudes-toolbar">
-          <label class="solicitudes-filter" for="solicitudesFiltroStatus">
-            <span>Filtrar por estatus</span>
-            <select id="solicitudesFiltroStatus" onchange="cargarSolicitudes()">
-              <option value="Seguimiento" selected>Seguimiento</option>
-              <option value="Rechazo">Rechazo</option>
-              <option value="Liberado">Liberado</option>
-            </select>
-          </label>
+          ${mostrarFiltroStatus ? `
+            <label class="solicitudes-filter" for="solicitudesFiltroStatus">
+              <span>Filtrar por estatus</span>
+              <select id="solicitudesFiltroStatus" onchange="cargarSolicitudes()">
+                <option value="Seguimiento" selected>Seguimiento</option>
+                <option value="Rechazo">Rechazo</option>
+                <option value="Liberado">Liberado</option>
+              </select>
+            </label>
+          ` : ''}
 
           ${puedeCrear ? '<button type="button" onclick="crearSolicitud()">Nueva solicitud</button>' : ''}
         </div>
@@ -163,6 +170,8 @@ async function cargarSolicitudes() {
   status.textContent = 'Cargando solicitudes...';
 
   const esControlTotal = esControlTotalSolicitudes();
+  const mostrarTodasPropias = esUsuarioNivelDosSolicitudes();
+  const filtroStatusConsulta = mostrarTodasPropias ? '' : filtroStatus;
   const nombresUsuario = obtenerNombresUsuarioSolicitud();
 
   if (!esControlTotal && nombresUsuario.length === 0) {
@@ -184,17 +193,17 @@ async function cargarSolicitudes() {
     consulta = consulta.in('Solicitante', nombresUsuario);
   }
 
-  if (filtroStatus === 'Rechazo') {
+  if (filtroStatusConsulta === 'Rechazo') {
     consulta = consulta.in('Status', ['Rechazo', 'Rechazado']);
-  } else if (filtroStatus === '__nuevas_pendientes__') {
+  } else if (filtroStatusConsulta === '__nuevas_pendientes__') {
     consulta = consulta.in('Status', ['Nueva', 'Pendiente', 'Seguimiento']);
-  } else if (filtroStatus && filtroStatus !== '__activas__') {
-    consulta = consulta.eq('Status', filtroStatus);
+  } else if (filtroStatusConsulta && filtroStatusConsulta !== '__activas__') {
+    consulta = consulta.eq('Status', filtroStatusConsulta);
   }
 
   consulta = consulta.order('id', { ascending: false });
 
-  if (!esControlTotal) {
+  if (!esControlTotal && !mostrarTodasPropias) {
     consulta = consulta.limit(SOLICITUD_LISTADO_LIMITE);
   }
 
@@ -212,17 +221,17 @@ async function cargarSolicitudes() {
       consultaRespaldo = consultaRespaldo.in('Solicitante', nombresUsuario);
     }
 
-    if (filtroStatus === 'Rechazo') {
+    if (filtroStatusConsulta === 'Rechazo') {
       consultaRespaldo = consultaRespaldo.in('Status', ['Rechazo', 'Rechazado']);
-    } else if (filtroStatus === '__nuevas_pendientes__') {
+    } else if (filtroStatusConsulta === '__nuevas_pendientes__') {
       consultaRespaldo = consultaRespaldo.in('Status', ['Nueva', 'Pendiente', 'Seguimiento']);
-    } else if (filtroStatus && filtroStatus !== '__activas__') {
-      consultaRespaldo = consultaRespaldo.eq('Status', filtroStatus);
+    } else if (filtroStatusConsulta && filtroStatusConsulta !== '__activas__') {
+      consultaRespaldo = consultaRespaldo.eq('Status', filtroStatusConsulta);
     }
 
     consultaRespaldo = consultaRespaldo.order('id', { ascending: false });
 
-    if (!esControlTotal) {
+    if (!esControlTotal && !mostrarTodasPropias) {
       consultaRespaldo = consultaRespaldo.limit(SOLICITUD_LISTADO_LIMITE);
     }
 
@@ -241,21 +250,23 @@ async function cargarSolicitudes() {
     return;
   }
 
-  data = filtrarSolicitudesPorFiltroStatus(data || [], filtroStatus)
+  data = filtrarSolicitudesPorFiltroStatus(data || [], filtroStatusConsulta)
     .filter(solicitud => esControlTotal || esSolicitudPropia(solicitud));
 
-  if (!esControlTotal) {
+  if (!esControlTotal && !mostrarTodasPropias) {
     data = data.slice(0, SOLICITUD_LISTADO_LIMITE);
   }
 
   if (!data || data.length === 0) {
     status.textContent = esControlTotal
-      ? filtroStatus
-        ? `No hay solicitudes con estatus ${obtenerEtiquetaFiltroSolicitudes(filtroStatus)}.`
+      ? filtroStatusConsulta
+        ? `No hay solicitudes con estatus ${obtenerEtiquetaFiltroSolicitudes(filtroStatusConsulta)}.`
         : 'No hay solicitudes registradas.'
-      : filtroStatus
-      ? `No tienes solicitudes con estatus ${obtenerEtiquetaFiltroSolicitudes(filtroStatus)}.`
-      : 'No tienes solicitudes registradas.';
+      : mostrarTodasPropias
+        ? 'No tienes solicitudes registradas.'
+        : filtroStatusConsulta
+          ? `No tienes solicitudes con estatus ${obtenerEtiquetaFiltroSolicitudes(filtroStatusConsulta)}.`
+          : 'No tienes solicitudes registradas.';
     tbody.innerHTML = `
       <tr>
         <td colspan="${columnas}">Sin solicitudes registradas todavia.</td>
@@ -265,12 +276,14 @@ async function cargarSolicitudes() {
   }
 
   status.textContent = esControlTotal
-    ? filtroStatus
-      ? `Solicitudes con estatus ${obtenerEtiquetaFiltroSolicitudes(filtroStatus)}: ${data.length}`
+    ? filtroStatusConsulta
+      ? `Solicitudes con estatus ${obtenerEtiquetaFiltroSolicitudes(filtroStatusConsulta)}: ${data.length}`
       : `Solicitudes registradas: ${data.length}`
-    : filtroStatus
-      ? `Tus solicitudes con estatus ${obtenerEtiquetaFiltroSolicitudes(filtroStatus)}: ${data.length}`
-      : `Tus solicitudes registradas: ${data.length}`;
+    : mostrarTodasPropias
+      ? `Tus solicitudes registradas: ${data.length}`
+      : filtroStatusConsulta
+        ? `Tus solicitudes con estatus ${obtenerEtiquetaFiltroSolicitudes(filtroStatusConsulta)}: ${data.length}`
+        : `Tus solicitudes registradas: ${data.length}`;
 
   if (!motivoRechazoDisponible) {
     status.textContent += ' | Falta crear la columna Motivo_Rechazo en Supabase.';
