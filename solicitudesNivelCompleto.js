@@ -4,6 +4,7 @@ let solicitudActualData = null;
 let solicitudCambioPadre = null;
 let solicitudesListadoRows = [];
 let solicitudGuardadoEnProceso = false;
+let solicitudConfirmacionCallback = null;
 
 function usuarioPuedeEnSolicitudes(...nivelesPermitidos) {
   const nivel = normalizarNivelUsuario(localStorage.getItem('usuarioNivel'));
@@ -15,6 +16,31 @@ function usuarioPuedeEnSolicitudes(...nivelesPermitidos) {
 
 function puedeDarSeguimientoSolicitudes() {
   return usuarioPuedeEnSolicitudes(0);
+}
+
+function esControlTotalSolicitudes() {
+  return normalizarNivelUsuario(localStorage.getItem('usuarioNivel')) === 0;
+}
+
+function obtenerIdentidadesUsuarioSolicitud() {
+  return [
+    localStorage.getItem('usuarioNombre'),
+    localStorage.getItem('usuarioActivo'),
+    obtenerNombreUsuarioVisible()
+  ]
+    .filter(Boolean)
+    .map(valor => normalizarTextoFlexible(valor))
+    .filter(Boolean);
+}
+
+function esSolicitudPropia(solicitud) {
+  const solicitante = normalizarTextoFlexible(solicitud?.Solicitante || '');
+  return solicitante
+    && obtenerIdentidadesUsuarioSolicitud().includes(solicitante);
+}
+
+function puedeAdministrarSolicitudPropia(solicitud) {
+  return esControlTotalSolicitudes() || esSolicitudPropia(solicitud);
 }
 
 const SOLICITUD_UNIDADES_MEDIDA = [
@@ -185,48 +211,65 @@ async function cargarSolicitudes() {
     status.textContent += ' | Falta crear la columna Motivo_Rechazo en Supabase.';
   }
   solicitudesListadoRows = data;
-  tbody.innerHTML = data.map((solicitud, index) => `
-    <tr>
-      <td>${escapeHtml(solicitud.Folio || '-')}</td>
-      <td>${escapeHtml(formatearFechaSolicitud(solicitud.Fecha))}</td>
-      <td>${escapeHtml(solicitud.Solicitante || '-')}</td>
-      <td>${escapeHtml(solicitud.D_extranjero || '-')}</td>
-      <td>${renderStatusSolicitud(solicitud.Status)}</td>
-      <td>
-        <div class="solicitud-row-actions">
-          ${puedeSeguimiento ? `
-            <button
-              type="button"
-              class="solicitud-open-button"
-              onclick="abrirSolicitud(${Number(solicitud.id)})"
-            >Abrir</button>
-          ` : `
-            <button
-              type="button"
-              class="solicitud-open-button"
-              onclick="imprimirSolicitudPDF(${Number(solicitud.id)})"
-            >Imprimir PDF</button>
-          `}
+  tbody.innerHTML = data.map((solicitud, index) => {
+    const puedeAdministrar = puedeAdministrarSolicitudPropia(solicitud);
 
-          ${puedeSolicitarCambio && !String(solicitud.Folio || '').startsWith('CAM-') ? `
-            <button
-              type="button"
-              class="solicitud-change-button"
-              onclick="solicitarCambio(${Number(solicitud.id)})"
-            >Solicitar Cambio</button>
-          ` : ''}
+    return `
+      <tr>
+        <td>${escapeHtml(solicitud.Folio || '-')}</td>
+        <td>${escapeHtml(formatearFechaSolicitud(solicitud.Fecha))}</td>
+        <td>${escapeHtml(solicitud.Solicitante || '-')}</td>
+        <td>${escapeHtml(solicitud.D_extranjero || '-')}</td>
+        <td>${renderStatusSolicitud(solicitud.Status)}</td>
+        <td>
+          <div class="solicitud-row-actions">
+            ${puedeSeguimiento ? `
+              <button
+                type="button"
+                class="solicitud-open-button"
+                onclick="abrirSolicitud(${Number(solicitud.id)})"
+              >Abrir</button>
+            ` : `
+              <button
+                type="button"
+                class="solicitud-open-button"
+                onclick="imprimirSolicitudPDF(${Number(solicitud.id)})"
+              >Imprimir PDF</button>
+            `}
 
-          ${solicitud.Status === 'Rechazo' ? `
-            <button
-              type="button"
-              class="solicitud-rejection-button"
-              onclick="verMotivoRechazoSolicitud(${index})"
-            >Ver motivo de rechazo</button>
-          ` : ''}
-        </div>
-      </td>
-    </tr>
-  `).join('');
+            ${puedeAdministrar ? `
+              <button
+                type="button"
+                class="solicitud-change-button"
+                onclick="editarSolicitud(${Number(solicitud.id)})"
+              >Editar</button>
+              <button
+                type="button"
+                class="danger-button"
+                onclick="eliminarSolicitud(${Number(solicitud.id)})"
+              >Borrar</button>
+            ` : ''}
+
+            ${puedeSolicitarCambio && !String(solicitud.Folio || '').startsWith('CAM-') ? `
+              <button
+                type="button"
+                class="solicitud-change-button"
+                onclick="solicitarCambio(${Number(solicitud.id)})"
+              >Solicitar Cambio</button>
+            ` : ''}
+
+            ${solicitud.Status === 'Rechazo' ? `
+              <button
+                type="button"
+                class="solicitud-rejection-button"
+                onclick="verMotivoRechazoSolicitud(${index})"
+              >Ver motivo de rechazo</button>
+            ` : ''}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
 }
 
 function formatearFechaSolicitud(fecha) {
@@ -314,6 +357,186 @@ window.cerrarMotivoRechazoVista = function cerrarMotivoRechazoVista() {
   document.getElementById('popupMotivoRechazoVista')?.remove();
 };
 
+function mostrarConfirmacionSolicitud(mensaje, onConfirmar) {
+  document.getElementById('popupConfirmacionSolicitud')?.remove();
+  solicitudConfirmacionCallback = typeof onConfirmar === 'function' ? onConfirmar : null;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'popupConfirmacionSolicitud';
+  overlay.className = 'popup-tipos-overlay';
+  overlay.innerHTML = `
+    <div class="popup-tipos guardado-popup solicitud-confirmacion-popup" role="dialog" aria-modal="true">
+      <div class="popup-tipos-header">
+        <h3>Confirmar accion</h3>
+      </div>
+      <div class="popup-tipos-body">
+        <p>${escapeHtml(mensaje)}</p>
+        <div class="guardado-popup-actions">
+          <button type="button" class="danger-button" onclick="confirmarAccionSolicitud()">Borrar</button>
+          <button type="button" onclick="cerrarConfirmacionSolicitud()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+}
+
+window.cerrarConfirmacionSolicitud = function cerrarConfirmacionSolicitud() {
+  solicitudConfirmacionCallback = null;
+  document.getElementById('popupConfirmacionSolicitud')?.remove();
+};
+
+window.confirmarAccionSolicitud = function confirmarAccionSolicitud() {
+  const callback = solicitudConfirmacionCallback;
+  cerrarConfirmacionSolicitud();
+  if (callback) callback();
+};
+
+window.editarSolicitud = async function editarSolicitud(id) {
+  const viewer = document.getElementById('viewer');
+  if (!viewer || !supabaseClient) return;
+
+  viewer.innerHTML = `
+    <div class="catalog-wrapper solicitudes-wrapper">
+      <div id="solicitudesStatus" class="status-box">Cargando solicitud para editar...</div>
+    </div>
+  `;
+
+  const { data, error } = await supabaseClient
+    .from('Solicitudes')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    document.getElementById('solicitudesStatus').textContent =
+      'Error al cargar la solicitud: ' + error.message;
+    return;
+  }
+
+  if (!puedeAdministrarSolicitudPropia(data)) {
+    mostrarAccesoDenegado();
+    return;
+  }
+
+  solicitudSeguimientoId = data.id;
+  solicitudActualData = data;
+
+  if (esSolicitudCambio(data)) {
+    renderFormularioSolicitudCambio(null, data, { edicion: true });
+    return;
+  }
+
+  crearSolicitud();
+  solicitudSeguimientoId = data.id;
+  solicitudActualData = data;
+
+  document.getElementById('solicitudAgregarArticulo')?.remove();
+
+  const titulo = document.querySelector('.solicitud-paper-header h2');
+  if (titulo) titulo.textContent = 'Editar Solicitud';
+
+  asignarValorSolicitud('solicitudFolio', data.Folio);
+  asignarValorSolicitud('solicitudFecha', data.Fecha);
+  asignarValorSolicitud('solicitudSolicitante', data.Solicitante);
+  asignarValorSolicitud('codigoExtranjero', data.C_Extranjero);
+  asignarValorSolicitud('descripcionExtranjera', data.D_extranjero);
+  asignarValorSolicitud('solicitudUnidadMedida', data.UM);
+  asignarValorSolicitud('solicitudComentarios', data.Comentarios);
+
+  const fantasma = document.querySelector(
+    `input[name="productoFantasma"][value="${data.Fantasma ? 'Si' : 'No'}"]`
+  );
+  if (fantasma && data.Fantasma !== null) fantasma.checked = true;
+
+  const categorias = String(data.Categoria || '')
+    .split(',')
+    .map(categoria => categoria.trim().toLowerCase());
+
+  const inventario = document.getElementById('categoriaInventario');
+  const venta = document.getElementById('categoriaVenta');
+  const compra = document.getElementById('categoriaCompra');
+
+  if (inventario) inventario.checked = categorias.includes('inventario');
+  if (venta) venta.checked = categorias.includes('venta');
+  if (compra) compra.checked = categorias.includes('compra');
+
+  bloquearSolicitanteSolicitud();
+
+  const acciones = document.querySelector('.solicitud-actions');
+  if (acciones) {
+    acciones.innerHTML = `
+      <button type="button" onclick="guardarEdicionSolicitud()">Guardar cambios</button>
+      <button type="button" onclick="renderSolicitudes()">Cancelar</button>
+    `;
+  }
+
+  const status = document.getElementById('solicitudesStatus');
+  if (status) status.textContent = `Editando solicitud ${data.Folio || ''}.`;
+};
+
+window.eliminarSolicitud = async function eliminarSolicitud(id) {
+  if (!supabaseClient) return;
+
+  const status = document.getElementById('solicitudesStatus');
+  const { data: solicitud, error: consultaError } = await supabaseClient
+    .from('Solicitudes')
+    .select('id,Folio,Solicitante')
+    .eq('id', id)
+    .single();
+
+  if (consultaError) {
+    if (status) status.textContent = 'Error al validar la solicitud: ' + consultaError.message;
+    return;
+  }
+
+  if (!solicitud?.id) {
+    if (status) status.textContent = 'No se encontro la solicitud que se desea borrar.';
+    return;
+  }
+
+  if (!puedeAdministrarSolicitudPropia(solicitud)) {
+    mostrarAccesoDenegado();
+    return;
+  }
+
+  mostrarConfirmacionSolicitud(
+    `Se borrara la solicitud "${solicitud.Folio || id}". Esta accion no se puede deshacer.`,
+    () => ejecutarEliminacionSolicitud(solicitud.id)
+  );
+};
+
+async function ejecutarEliminacionSolicitud(id) {
+  const status = document.getElementById('solicitudesStatus');
+
+  if (status) status.textContent = 'Borrando solicitud...';
+
+  const { data, error } = await supabaseClient
+    .from('Solicitudes')
+    .delete()
+    .eq('id', id)
+    .select('id,Folio');
+
+  if (error) {
+    if (status) status.textContent = 'Error al borrar solicitud: ' + error.message;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    if (status) {
+      status.textContent = 'Supabase no borro ningun registro. Revisa permisos RLS de delete en la tabla Solicitudes.';
+    }
+    return;
+  }
+
+  if (status) status.textContent = 'Solicitud borrada correctamente.';
+  mostrarPopupGuardado('Solicitud borrada correctamente.', {
+    titulo: 'Solicitud borrada'
+  });
+  cargarSolicitudes();
+}
+
 window.abrirSolicitud = async function abrirSolicitud(id) {
   const viewer = document.getElementById('viewer');
   if (!viewer || !supabaseClient) return;
@@ -399,7 +622,7 @@ window.abrirSolicitud = async function abrirSolicitud(id) {
     .forEach(control => {
       if (control.closest('.solicitud-formato-futuro')) return;
 
-      const soloLectura = ['solicitudFolio', 'solicitudFecha'].includes(control.id);
+      const soloLectura = ['solicitudFolio', 'solicitudFecha', 'solicitudSolicitante'].includes(control.id);
       control.disabled = soloLectura;
       control.readOnly = soloLectura;
     });
@@ -457,6 +680,74 @@ function asignarValorSolicitud(id, valor) {
 
   control.value = valor ?? '';
 }
+
+function bloquearSolicitanteSolicitud() {
+  const solicitante = document.getElementById('solicitudSolicitante');
+  if (!solicitante) return;
+
+  solicitante.disabled = true;
+  solicitante.readOnly = true;
+}
+
+function construirPayloadEdicionSolicitudBasica() {
+  const categorias = [];
+
+  if (document.getElementById('categoriaInventario')?.checked) {
+    categorias.push('Inventario');
+  }
+
+  if (document.getElementById('categoriaVenta')?.checked) {
+    categorias.push('Venta');
+  }
+
+  if (document.getElementById('categoriaCompra')?.checked) {
+    categorias.push('Compra');
+  }
+
+  const fantasmaValue = document.querySelector(
+    'input[name="productoFantasma"]:checked'
+  )?.value || null;
+
+  return {
+    C_Extranjero: document.getElementById('codigoExtranjero')?.value.trim() || null,
+    D_extranjero: document.getElementById('descripcionExtranjera')?.value.trim() || null,
+    UM: document.getElementById('solicitudUnidadMedida')?.value || null,
+    Fantasma: fantasmaValue === null ? null : fantasmaValue === 'Si',
+    Categoria: categorias.length ? categorias.join(', ') : null,
+    Comentarios: document.getElementById('solicitudComentarios')?.value.trim() || null
+  };
+}
+
+window.guardarEdicionSolicitud = async function guardarEdicionSolicitud() {
+  const status = document.getElementById('solicitudesStatus');
+
+  if (!solicitudSeguimientoId || !solicitudActualData) {
+    if (status) status.textContent = 'No se identifico la solicitud que se desea actualizar.';
+    return;
+  }
+
+  if (!puedeAdministrarSolicitudPropia(solicitudActualData)) {
+    mostrarAccesoDenegado();
+    return;
+  }
+
+  if (status) status.textContent = 'Guardando cambios...';
+
+  const { error } = await supabaseClient
+    .from('Solicitudes')
+    .update(construirPayloadEdicionSolicitudBasica())
+    .eq('id', solicitudSeguimientoId);
+
+  if (error) {
+    if (status) status.textContent = 'Error al guardar cambios: ' + error.message;
+    return;
+  }
+
+  if (status) status.textContent = 'Solicitud actualizada correctamente.';
+  mostrarPopupGuardado('Solicitud actualizada correctamente.', {
+    onClose: () => renderSolicitudes()
+  });
+};
 
 async function prepararGeneradorSolicitud(data) {
   nuevoCodigoState = {
@@ -589,15 +880,6 @@ window.guardarSeguimientoSolicitud = async function guardarSeguimientoSolicitud(
     'input[name="clasificacionGeneral"]:checked'
   )?.value || null;
 
-  const solicitanteInput = document.getElementById('solicitudSolicitante');
-  const solicitante = solicitanteInput?.value.trim() || '';
-
-  if (!solicitante) {
-    if (status) status.textContent = 'Escribe el nombre del solicitante.';
-    solicitanteInput?.focus();
-    return;
-  }
-
   const categorias = [];
 
   if (document.getElementById('categoriaInventario')?.checked) {
@@ -618,7 +900,6 @@ window.guardarSeguimientoSolicitud = async function guardarSeguimientoSolicitud(
 
   const codigo = document.getElementById('nuevoCodigoGenerado')?.textContent.trim();
   const payload = {
-    Solicitante: solicitante,
     C_Extranjero: document.getElementById('codigoExtranjero')?.value.trim() || null,
     D_extranjero: document.getElementById('descripcionExtranjera')?.value.trim() || null,
     UM: document.getElementById('solicitudUnidadMedida')?.value || null,
@@ -1151,12 +1432,13 @@ function renderDetalleSolicitudCambio(cambio) {
   renderFormularioSolicitudCambio(null, cambio);
 }
 
-function renderFormularioSolicitudCambio(padre, cambio) {
+function renderFormularioSolicitudCambio(padre, cambio, opciones = {}) {
   const viewer = document.getElementById('viewer');
   if (!viewer) return;
 
   const esConsulta = Boolean(cambio);
-  const deshabilitado = esConsulta ? 'disabled' : '';
+  const esEdicion = Boolean(opciones.edicion && cambio);
+  const deshabilitado = esConsulta && !esEdicion ? 'disabled' : '';
   const folioPadre = cambio?.Folio_Padre || padre?.Folio || '';
   const solicitante = cambio?.Solicitante || obtenerNombreUsuarioVisible();
   const fecha = cambio?.Fecha || obtenerFechaLocalSolicitud();
@@ -1168,7 +1450,7 @@ function renderFormularioSolicitudCambio(padre, cambio) {
       <div class="solicitud-paper cambio-paper">
         <div class="solicitud-paper-header">
           <div>
-            <h2>${esConsulta ? 'Seguimiento de Solicitud de Cambio' : 'Solicitud de Cambio de Articulo'}</h2>
+            <h2>${esEdicion ? 'Editar Solicitud de Cambio' : esConsulta ? 'Seguimiento de Solicitud de Cambio' : 'Solicitud de Cambio de Articulo'}</h2>
             <p>Complemento del folio ${escapeHtml(folioPadre)}.</p>
           </div>
           <button type="button" onclick="renderSolicitudes()">Regresar</button>
@@ -1253,7 +1535,10 @@ function renderFormularioSolicitudCambio(padre, cambio) {
         </div>
 
         <div class="solicitud-actions">
-          ${esConsulta ? `
+          ${esConsulta && esEdicion ? `
+            <button type="button" onclick="guardarEdicionSolicitudCambio()">Guardar cambios</button>
+            <button type="button" onclick="renderSolicitudes()">Cancelar</button>
+          ` : esConsulta ? `
             <label class="solicitud-status-field" for="solicitudStatusSeguimiento">
               <span>Status</span>
               <select id="solicitudStatusSeguimiento">
@@ -1272,7 +1557,9 @@ function renderFormularioSolicitudCambio(padre, cambio) {
         </div>
 
         <div id="solicitudesStatus" class="status-box">
-          ${esConsulta
+          ${esEdicion
+            ? `Editando solicitud de cambio ${escapeHtml(cambio.Folio || '')}.`
+            : esConsulta
             ? cambio.Status === 'Rechazo' && cambio.Motivo_Rechazo
               ? `Solicitud rechazada. Motivo: ${escapeHtml(cambio.Motivo_Rechazo)}`
               : 'Solicitud de cambio abierta en modo de seguimiento.'
@@ -1284,7 +1571,7 @@ function renderFormularioSolicitudCambio(padre, cambio) {
 
   asignarValorSolicitud('cambioUnidadMedida', cambio?.Cambio_UM || padre?.UM || '');
 
-  if (esConsulta) {
+  if (esConsulta && !esEdicion) {
     asignarValorSolicitud('solicitudStatusSeguimiento', cambio.Status || 'Seguimiento');
   }
 }
@@ -1357,6 +1644,58 @@ window.guardarSolicitudCambio = async function guardarSolicitudCambio() {
       onClose: () => showSection('bienvenida')
     }
   );
+};
+
+window.guardarEdicionSolicitudCambio = async function guardarEdicionSolicitudCambio() {
+  const status = document.getElementById('solicitudesStatus');
+  const estatusRequerido = document.querySelector(
+    'input[name="cambioEstatusRequerido"]:checked'
+  )?.value || '';
+  const secciones = Array.from(document.querySelectorAll('.cambio-seccion:checked'))
+    .map(input => input.value);
+  const unidad = document.getElementById('cambioUnidadMedida')?.value || '';
+  const motivo = document.getElementById('cambioMotivo')?.value.trim() || '';
+
+  if (!solicitudSeguimientoId || !solicitudActualData) {
+    if (status) status.textContent = 'No se identifico la solicitud que se desea actualizar.';
+    return;
+  }
+
+  if (!puedeAdministrarSolicitudPropia(solicitudActualData)) {
+    mostrarAccesoDenegado();
+    return;
+  }
+
+  if (!estatusRequerido || secciones.length === 0 || !unidad || !motivo) {
+    if (status) status.textContent = 'Completa estatus, cambio realizado, unidad y motivo.';
+    return;
+  }
+
+  if (status) status.textContent = 'Guardando cambios...';
+
+  const payload = {
+    D_extranjero: motivo,
+    UM: unidad,
+    Cambio_Estatus_Requerido: estatusRequerido,
+    Cambio_Secciones: secciones.join(', '),
+    Cambio_UM: unidad,
+    Cambio_Motivo: motivo
+  };
+
+  const { error } = await supabaseClient
+    .from('Solicitudes')
+    .update(payload)
+    .eq('id', solicitudSeguimientoId);
+
+  if (error) {
+    if (status) status.textContent = 'Error al guardar cambios: ' + error.message;
+    return;
+  }
+
+  if (status) status.textContent = 'Solicitud de cambio actualizada correctamente.';
+  mostrarPopupGuardado('Solicitud de cambio actualizada correctamente.', {
+    onClose: () => renderSolicitudes()
+  });
 };
 
 window.descargarSolicitudActualPDF = async function descargarSolicitudActualPDF() {
@@ -1507,6 +1846,7 @@ window.crearSolicitud = function crearSolicitud() {
               type="text"
               maxlength="150"
               autocomplete="off"
+              disabled
               required
             >
           </div>
@@ -1691,6 +2031,8 @@ window.prepararSolicitudInicial = function prepararSolicitudInicial() {
 
   if (solicitante) {
     solicitante.value = nombreUsuario;
+    solicitante.disabled = true;
+    solicitante.readOnly = true;
   }
 };
 
@@ -1718,12 +2060,10 @@ async function guardarSolicitud() {
     return;
   }
 
-  const solicitanteInput = document.getElementById('solicitudSolicitante');
-  const solicitante = solicitanteInput?.value.trim() || '';
+  const solicitante = obtenerNombreUsuarioVisible();
 
   if (!solicitante) {
     if (status) status.textContent = 'Escribe el nombre del solicitante.';
-    solicitanteInput?.focus();
     return;
   }
 
