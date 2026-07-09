@@ -158,9 +158,10 @@ async function cargarSolicitudes() {
 
   status.textContent = 'Cargando solicitudes...';
 
+  const esControlTotal = esControlTotalSolicitudes();
   const nombresUsuario = obtenerNombresUsuarioSolicitud();
 
-  if (nombresUsuario.length === 0) {
+  if (!esControlTotal && nombresUsuario.length === 0) {
     status.textContent = 'No se encontro el usuario de la sesion.';
     solicitudesListadoRows = [];
     tbody.innerHTML = `
@@ -173,8 +174,11 @@ async function cargarSolicitudes() {
 
   let consulta = supabaseClient
     .from('Solicitudes')
-    .select('id,Folio,Fecha,Solicitante,D_extranjero,Status,Motivo_Rechazo')
-    .in('Solicitante', nombresUsuario);
+    .select('id,Folio,Fecha,Solicitante,D_extranjero,Status,Motivo_Rechazo');
+
+  if (!esControlTotal) {
+    consulta = consulta.in('Solicitante', nombresUsuario);
+  }
 
   if (filtroStatus === 'Rechazo') {
     consulta = consulta.in('Status', ['Rechazo', 'Rechazado']);
@@ -194,8 +198,11 @@ async function cargarSolicitudes() {
 
     let consultaRespaldo = supabaseClient
       .from('Solicitudes')
-      .select('id,Folio,Fecha,Solicitante,D_extranjero,Status')
-      .in('Solicitante', nombresUsuario);
+      .select('id,Folio,Fecha,Solicitante,D_extranjero,Status');
+
+    if (!esControlTotal) {
+      consultaRespaldo = consultaRespaldo.in('Solicitante', nombresUsuario);
+    }
 
     if (filtroStatus === 'Rechazo') {
       consultaRespaldo = consultaRespaldo.in('Status', ['Rechazo', 'Rechazado']);
@@ -223,11 +230,15 @@ async function cargarSolicitudes() {
   }
 
   data = filtrarSolicitudesPorFiltroStatus(data || [], filtroStatus)
-    .filter(esSolicitudPropia)
+    .filter(solicitud => esControlTotal || esSolicitudPropia(solicitud))
     .slice(0, SOLICITUD_LISTADO_LIMITE);
 
   if (!data || data.length === 0) {
-    status.textContent = filtroStatus
+    status.textContent = esControlTotal
+      ? filtroStatus
+        ? `No hay solicitudes con estatus ${obtenerEtiquetaFiltroSolicitudes(filtroStatus)}.`
+        : 'No hay solicitudes registradas.'
+      : filtroStatus
       ? `No tienes solicitudes con estatus ${obtenerEtiquetaFiltroSolicitudes(filtroStatus)}.`
       : 'No tienes solicitudes registradas.';
     tbody.innerHTML = `
@@ -238,9 +249,13 @@ async function cargarSolicitudes() {
     return;
   }
 
-  status.textContent = filtroStatus
-    ? `Tus solicitudes con estatus ${obtenerEtiquetaFiltroSolicitudes(filtroStatus)}: ${data.length}`
-    : `Tus solicitudes registradas: ${data.length}`;
+  status.textContent = esControlTotal
+    ? filtroStatus
+      ? `Solicitudes con estatus ${obtenerEtiquetaFiltroSolicitudes(filtroStatus)}: ${data.length}`
+      : `Solicitudes registradas: ${data.length}`
+    : filtroStatus
+      ? `Tus solicitudes con estatus ${obtenerEtiquetaFiltroSolicitudes(filtroStatus)}: ${data.length}`
+      : `Tus solicitudes registradas: ${data.length}`;
 
   if (!motivoRechazoDisponible) {
     status.textContent += ' | Falta crear la columna Motivo_Rechazo en Supabase.';
