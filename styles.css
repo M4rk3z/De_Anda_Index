@@ -508,6 +508,32 @@ body {
   background: #b91c1c;
 }
 
+.guardado-popup .popup-tipos-body p {
+  margin: 0 0 16px;
+  color: var(--sap-text);
+  font-weight: 600;
+}
+
+.guardado-popup-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.guardado-popup-actions button {
+  min-width: 110px;
+  min-height: 36px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--sap-blue);
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.guardado-popup-actions button:hover {
+  background: var(--sap-blue-dark);
+}
+
 .popup-tipo-option {
   display: flex;
   flex-direction: column;

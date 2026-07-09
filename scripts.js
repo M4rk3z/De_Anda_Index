@@ -94,6 +94,45 @@ function mostrarAccesoDenegado() {
   `;
 }
 
+function mostrarPopupGuardado(mensaje, opciones = {}) {
+  const titulo = opciones.titulo || 'Guardado correctamente';
+
+  document.getElementById('popupGuardadoOverlay')?.remove();
+  window.popupGuardadoCallback = typeof opciones.onClose === 'function'
+    ? opciones.onClose
+    : null;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'popupGuardadoOverlay';
+  overlay.className = 'popup-tipos-overlay';
+  overlay.innerHTML = `
+    <div class="popup-tipos guardado-popup" role="dialog" aria-modal="true">
+      <div class="popup-tipos-header">
+        <h3>${escapeHtml(titulo)}</h3>
+      </div>
+      <div class="popup-tipos-body">
+        <p>${escapeHtml(mensaje)}</p>
+        <div class="guardado-popup-actions">
+          <button type="button" onclick="cerrarPopupGuardado()">Aceptar</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+}
+
+function cerrarPopupGuardado() {
+  document.getElementById('popupGuardadoOverlay')?.remove();
+
+  const callback = window.popupGuardadoCallback;
+  window.popupGuardadoCallback = null;
+
+  if (typeof callback === 'function') {
+    callback();
+  }
+}
+
 function aplicarPermisosNavegacion() {
   document.querySelectorAll('#sideMenu [data-section]').forEach(button => {
     button.hidden = !puedeAccederSeccion(button.dataset.section);

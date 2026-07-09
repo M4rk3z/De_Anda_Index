@@ -844,6 +844,7 @@ async function guardarNuevoCodigoMateriaPrima() {
   }
 
   setNuevoCodigoStatus('Se genero correctamente.');
+  mostrarPopupGuardado('Codigo guardado correctamente.');
 }
 
 function construirDescripcionSAPNuevoCodigo(descripcion) {

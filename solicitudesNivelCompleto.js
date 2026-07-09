@@ -3,6 +3,7 @@ let solicitudArticuloContador = 1;
 let solicitudActualData = null;
 let solicitudCambioPadre = null;
 let solicitudesListadoRows = [];
+let solicitudGuardadoEnProceso = false;
 
 function usuarioPuedeEnSolicitudes(...nivelesPermitidos) {
   const nivel = normalizarNivelUsuario(localStorage.getItem('usuarioNivel'));
@@ -648,6 +649,9 @@ window.guardarSeguimientoSolicitud = async function guardarSeguimientoSolicitud(
   }
 
   if (status) status.textContent = 'Cambios guardados correctamente.';
+  mostrarPopupGuardado('Cambios guardados correctamente.', {
+    onClose: () => showSection('bienvenida')
+  });
 };
 
 window.cambiarStatusSolicitud = async function cambiarStatusSolicitud(motivoRechazo = null) {
@@ -713,6 +717,9 @@ window.cambiarStatusSolicitud = async function cambiarStatusSolicitud(motivoRech
   }
 
   if (statusBox) statusBox.textContent = `Status actualizado a ${nuevoStatus}.`;
+  mostrarPopupGuardado(`Status actualizado a ${nuevoStatus}.`, {
+    onClose: () => showSection('bienvenida')
+  });
   if (solicitudActualData) {
     Object.assign(solicitudActualData, cambiosStatus);
   }
@@ -1342,6 +1349,14 @@ window.guardarSolicitudCambio = async function guardarSolicitudCambio() {
   const boton = document.getElementById('btnGuardarCambio');
   if (boton) boton.disabled = true;
   if (status) status.textContent = `Solicitud de cambio guardada. Folio: ${data.Folio}`;
+
+  mostrarPopupGuardado(
+    `Solicitud de cambio guardada correctamente. Folio: ${data.Folio}.`,
+    {
+      titulo: 'Solicitud guardada',
+      onClose: () => showSection('bienvenida')
+    }
+  );
 };
 
 window.descargarSolicitudActualPDF = async function descargarSolicitudActualPDF() {
@@ -1691,6 +1706,11 @@ async function guardarSolicitud() {
 
   const status = document.getElementById('solicitudesStatus');
 
+  if (solicitudGuardadoEnProceso) {
+    if (status) status.textContent = 'La solicitud ya se esta guardando. Espera la confirmacion.';
+    return;
+  }
+
   if (!supabaseClient) {
     if (status) {
       status.textContent = 'Supabase no esta cargado. Revisa index.html.';
@@ -1743,6 +1763,7 @@ async function guardarSolicitud() {
   }
 
   try {
+    solicitudGuardadoEnProceso = true;
     if (status) status.textContent = `Guardando ${payload.length} articulo(s)...`;
 
     const { data, error } = await supabaseClient
@@ -1762,7 +1783,17 @@ async function guardarSolicitud() {
     if (folioInput) {
       folioInput.value = folios.join(', ');
     }
+
+    mostrarPopupGuardado(
+      `Solicitud guardada correctamente. Folios: ${folios.join(', ') || 'generados'}.`,
+      {
+        titulo: 'Solicitud guardada',
+        onClose: () => showSection('bienvenida')
+      }
+    );
   } catch (error) {
+    solicitudGuardadoEnProceso = false;
+
     if (status) {
       status.textContent = 'Error al guardar solicitud: ' + error.message;
     }

@@ -387,6 +387,8 @@ async function guardarRegistroMaestro(index) {
   if (statusBox) {
     statusBox.textContent = 'Registro actualizado correctamente.';
   }
+
+  mostrarPopupGuardado('Registro actualizado correctamente.');
 }
 
 function obtenerValorMaestro(prefijo, index) {
@@ -650,6 +652,7 @@ async function agregarUsuarioAcceso() {
   nivelInput.value = '';
   await cargarUsuariosAcceso();
   if (status) status.textContent = 'Usuario agregado correctamente.';
+  mostrarPopupGuardado('Usuario agregado correctamente.');
 }
 
 async function guardarUsuarioAcceso(index) {
@@ -713,6 +716,7 @@ async function guardarUsuarioAcceso(index) {
   }
 
   if (status) status.textContent = 'Usuario actualizado correctamente.';
+  mostrarPopupGuardado('Usuario actualizado correctamente.');
 }
 
 async function eliminarUsuarioAcceso(index) {
@@ -1020,6 +1024,7 @@ async function agregarRegistroCatalogo() {
 
   await cargarCatalogoAdmin();
   status.textContent = 'Registro agregado correctamente.';
+  mostrarPopupGuardado('Registro agregado correctamente.');
 }
 
 async function guardarRegistroCatalogo(index) {
@@ -1065,6 +1070,7 @@ async function guardarRegistroCatalogo(index) {
 
   await cargarCatalogoAdmin();
   status.textContent = 'Registro actualizado correctamente.';
+  mostrarPopupGuardado('Registro actualizado correctamente.');
 }
 
 async function eliminarRegistroCatalogo(index) {
