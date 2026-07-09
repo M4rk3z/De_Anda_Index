@@ -188,9 +188,13 @@ async function cargarSolicitudes() {
     consulta = consulta.eq('Status', filtroStatus);
   }
 
-  let { data, error } = await consulta
-    .order('id', { ascending: false })
-    .limit(SOLICITUD_LISTADO_LIMITE);
+  consulta = consulta.order('id', { ascending: false });
+
+  if (!esControlTotal) {
+    consulta = consulta.limit(SOLICITUD_LISTADO_LIMITE);
+  }
+
+  let { data, error } = await consulta;
   let motivoRechazoDisponible = true;
 
   if (error && String(error.message || '').includes('Motivo_Rechazo')) {
@@ -212,9 +216,13 @@ async function cargarSolicitudes() {
       consultaRespaldo = consultaRespaldo.eq('Status', filtroStatus);
     }
 
-    const resultadoRespaldo = await consultaRespaldo
-      .order('id', { ascending: false })
-      .limit(SOLICITUD_LISTADO_LIMITE);
+    consultaRespaldo = consultaRespaldo.order('id', { ascending: false });
+
+    if (!esControlTotal) {
+      consultaRespaldo = consultaRespaldo.limit(SOLICITUD_LISTADO_LIMITE);
+    }
+
+    const resultadoRespaldo = await consultaRespaldo;
     data = resultadoRespaldo.data;
     error = resultadoRespaldo.error;
   }
@@ -230,8 +238,11 @@ async function cargarSolicitudes() {
   }
 
   data = filtrarSolicitudesPorFiltroStatus(data || [], filtroStatus)
-    .filter(solicitud => esControlTotal || esSolicitudPropia(solicitud))
-    .slice(0, SOLICITUD_LISTADO_LIMITE);
+    .filter(solicitud => esControlTotal || esSolicitudPropia(solicitud));
+
+  if (!esControlTotal) {
+    data = data.slice(0, SOLICITUD_LISTADO_LIMITE);
+  }
 
   if (!data || data.length === 0) {
     status.textContent = esControlTotal
