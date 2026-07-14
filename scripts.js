@@ -879,6 +879,7 @@ function renderBuscador() {
               <th>Nombre SAP</th>
               <th>Version SAP</th>
               <th>Revision SAP</th>
+              <th>Muliix</th>
               <th>Status</th>
               <th>Fecha Ultimo Cambio</th>
               <th>Responsable</th>
@@ -887,7 +888,7 @@ function renderBuscador() {
 
           <tbody id="buscadorResults">
             <tr>
-              <td colspan="9">Sin resultados todavia.</td>
+              <td colspan="10">Sin resultados todavia.</td>
             </tr>
           </tbody>
         </table>
@@ -914,7 +915,7 @@ async function buscarMateriaPrima() {
 
     tbody.innerHTML = `
       <tr>
-        <td colspan="9">Sin resultados todavia.</td>
+        <td colspan="10">Sin resultados todavia.</td>
       </tr>
     `;
 
@@ -932,7 +933,7 @@ async function buscarMateriaPrima() {
 
   const { data, error } = await leerSupabasePaginado(
     'BD_General',
-    '"Codigo Pixvs","Nombre Pixvs","Codigo SAP","Nombre SAP","Version SAP","Revision SAP","Status","Fecha de ultimo Cambio","Responsable"',
+    '"Codigo Pixvs","Nombre Pixvs","Codigo SAP","Nombre SAP","Version SAP","Revision SAP","Muliix","Status","Fecha de ultimo Cambio","Responsable"',
     'Codigo SAP'
   );
 
@@ -941,7 +942,7 @@ async function buscarMateriaPrima() {
 
     tbody.innerHTML = `
       <tr>
-        <td colspan="9">${escapeHtml(error.message)}</td>
+        <td colspan="10">${escapeHtml(error.message)}</td>
       </tr>
     `;
 
@@ -966,7 +967,7 @@ async function buscarMateriaPrima() {
 
     tbody.innerHTML = `
       <tr>
-        <td colspan="9">No hay coincidencias.</td>
+        <td colspan="10">No hay coincidencias.</td>
       </tr>
     `;
 
@@ -985,6 +986,7 @@ async function buscarMateriaPrima() {
       <td>${escapeHtml(item['Nombre SAP'])}</td>
       <td>${escapeHtml(item['Version SAP'])}</td>
       <td>${escapeHtml(item['Revision SAP'])}</td>
+      <td>${renderMuliixCheckbox(item['Muliix'])}</td>
       <td>${renderStatusBadge(item['Status'])}</td>
       <td>${escapeHtml(formatearFecha(item['Fecha de ultimo Cambio']))}</td>
       <td>${escapeHtml(item['Responsable'])}</td>
@@ -1082,6 +1084,29 @@ function renderStatusBadge(status) {
       ${etiqueta}
     </span>
   `;
+}
+
+function renderMuliixCheckbox(valor) {
+  return `
+    <input
+      type="checkbox"
+      class="muliix-checkbox"
+      ${normalizarBooleanoMuliix(valor) ? 'checked' : ''}
+      disabled
+      aria-label="Muliix"
+    >
+  `;
+}
+
+function normalizarBooleanoMuliix(valor) {
+  if (valor === true) return true;
+  if (valor === false || valor === null || valor === undefined) return false;
+
+  const normalizado = normalizarTextoFlexible(valor);
+  return normalizado === 'TRUE'
+    || normalizado === 'SI'
+    || normalizado === '1'
+    || normalizado === 'YES';
 }
 
 function normalizarTextoFlexible(texto) {

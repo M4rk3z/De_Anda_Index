@@ -136,6 +136,7 @@ function renderEditorMaestro() {
               <th>Nombre SAP</th>
               <th>Version SAP</th>
               <th>Revision SAP</th>
+              <th>Muliix</th>
               <th>Status</th>
               <th>Fecha ultimo cambio</th>
               <th>Responsable</th>
@@ -144,7 +145,7 @@ function renderEditorMaestro() {
           </thead>
           <tbody id="editorMaestroResultados">
             <tr>
-              <td colspan="10">Sin resultados todavia.</td>
+              <td colspan="11">Sin resultados todavia.</td>
             </tr>
           </tbody>
         </table>
@@ -168,7 +169,7 @@ async function buscarEditorMaestro() {
 
   statusBox.textContent = 'Buscando...';
 
-  const columnas = '"Id","Codigo Pixvs","Nombre Pixvs","Codigo SAP","Nombre SAP","Version SAP","Revision SAP","Status","Fecha de ultimo Cambio","Responsable"';
+  const columnas = '"Id","Codigo Pixvs","Nombre Pixvs","Codigo SAP","Nombre SAP","Version SAP","Revision SAP","Muliix","Status","Fecha de ultimo Cambio","Responsable"';
   let data = [];
   let error = null;
 
@@ -216,7 +217,7 @@ function renderResultadosEditorMaestro(rows) {
   editorMaestroRows = rows || [];
 
   if (!editorMaestroRows.length) {
-    tbody.innerHTML = '<tr><td colspan="10">No se encontraron resultados.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11">No se encontraron resultados.</td></tr>';
     return;
   }
 
@@ -278,6 +279,16 @@ function renderResultadosEditorMaestro(rows) {
           min="0"
           step="1"
           value="${escapeHtml(row['Revision SAP'] ?? '')}"
+        >
+      </td>
+
+      <td class="master-checkbox-cell">
+        <input
+          id="maestro-muliix-${index}"
+          class="muliix-checkbox"
+          type="checkbox"
+          ${normalizarBooleanoMuliix(row['Muliix']) ? 'checked' : ''}
+          aria-label="Muliix"
         >
       </td>
 
@@ -354,6 +365,7 @@ async function guardarRegistroMaestro(index) {
     'Nombre SAP': valorONull(obtenerValorMaestro('maestro-nombre-sap', index)),
     'Version SAP': versionSap,
     'Revision SAP': revisionSap,
+    'Muliix': obtenerCheckboxMaestro('maestro-muliix', index),
     'Status': obtenerValorMaestro('maestro-status', index),
     'Fecha de ultimo Cambio': fechaCambio,
     'Responsable': responsable
@@ -365,7 +377,7 @@ async function guardarRegistroMaestro(index) {
     .from('BD_General')
     .update(payload)
     .eq('Id', row.Id)
-    .select('"Id","Codigo Pixvs","Nombre Pixvs","Codigo SAP","Nombre SAP","Version SAP","Revision SAP","Status","Fecha de ultimo Cambio","Responsable"')
+    .select('"Id","Codigo Pixvs","Nombre Pixvs","Codigo SAP","Nombre SAP","Version SAP","Revision SAP","Muliix","Status","Fecha de ultimo Cambio","Responsable"')
     .maybeSingle();
 
   if (error) {
@@ -394,6 +406,22 @@ async function guardarRegistroMaestro(index) {
 function obtenerValorMaestro(prefijo, index) {
   const elemento = document.getElementById(`${prefijo}-${index}`);
   return elemento ? elemento.value.trim() : '';
+}
+
+function obtenerCheckboxMaestro(prefijo, index) {
+  const elemento = document.getElementById(`${prefijo}-${index}`);
+  return Boolean(elemento?.checked);
+}
+
+function normalizarBooleanoMuliix(valor) {
+  if (valor === true) return true;
+  if (valor === false || valor === null || valor === undefined) return false;
+
+  const normalizado = normalizarTextoFlexible(valor);
+  return normalizado === 'TRUE'
+    || normalizado === 'SI'
+    || normalizado === '1'
+    || normalizado === 'YES';
 }
 
 function convertirEnteroOpcional(valor) {
