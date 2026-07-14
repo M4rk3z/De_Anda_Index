@@ -190,6 +190,21 @@ function renderNuevoCodigo(opciones = {}) {
           <strong>Codigo nuevo:</strong>
           <span id="previewCodigoNuevo">-</span>
         </div>
+
+        ${nuevoCodigoModoSimulador ? '' : `
+          <div class="preview-row">
+            <label for="nuevoCodigoPixvs">
+              <strong>Codigo Pixvs:</strong>
+            </label>
+            <input
+              id="nuevoCodigoPixvs"
+              class="preview-input"
+              type="text"
+              placeholder="Opcional"
+              disabled
+            >
+          </div>
+        `}
       </div>
     </div>
   `;
@@ -794,9 +809,11 @@ async function guardarNuevoCodigoMateriaPrima() {
 
   const descripcionInput = document.getElementById('nuevoCodigoDescripcionVieja');
   const codigoGeneradoEl = document.getElementById('nuevoCodigoGenerado');
+  const codigoPixvsInput = document.getElementById('nuevoCodigoPixvs');
 
   const descripcion = descripcionInput.value.trim();
   const codigoNuevo = codigoGeneradoEl.textContent.trim();
+  const codigoPixvs = codigoPixvsInput?.value.trim() || null;
 
   if (!descripcion) {
     setNuevoCodigoStatus('Escribe una descripcion antes de guardar.');
@@ -826,7 +843,7 @@ async function guardarNuevoCodigoMateriaPrima() {
     .from(TABLA_CODIGOS)
     .insert([
       {
-        [COLUMNA_CODIGO_PIXVS]: null,
+        [COLUMNA_CODIGO_PIXVS]: codigoPixvs,
         [COLUMNA_DESCRIPCION_1]: descripcion,
         [COLUMNA_CODIGO]: codigoNuevo,
         [COLUMNA_DESCRIPCION_2]: construirDescripcionSAPNuevoCodigo(descripcion),
@@ -902,6 +919,7 @@ function prepararVistaPreviaNuevoCodigo() {
   const descripcionInput = document.getElementById('nuevoCodigoDescripcionVieja');
   const descripcion = descripcionInput.value.trim();
   const codigoGenerado = document.getElementById('nuevoCodigoGenerado').textContent;
+  const codigoPixvsInput = document.getElementById('nuevoCodigoPixvs');
 
   document.getElementById('previewDescripcionVieja').textContent =
     descripcion || '-';
@@ -911,6 +929,10 @@ function prepararVistaPreviaNuevoCodigo() {
 
   document.getElementById('previewCodigoNuevo').textContent =
     codigoGenerado || '-';
+
+  if (codigoPixvsInput) {
+    codigoPixvsInput.disabled = !codigoGenerado || codigoGenerado === '-';
+  }
 }
 
 /*************************************************
@@ -934,10 +956,12 @@ function limpiarNuevoCodigo() {
   const grupoSelect = document.getElementById('nuevoCodigoGrupo');
   const descripcionInput = document.getElementById('nuevoCodigoDescripcionVieja');
   const consecutivoInput = document.getElementById('nuevoCodigoConsecutivo');
+  const codigoPixvsInput = document.getElementById('nuevoCodigoPixvs');
 
   if (grupoSelect) grupoSelect.value = '';
   if (descripcionInput) descripcionInput.value = '';
   if (consecutivoInput) consecutivoInput.value = 'Automatico';
+  if (codigoPixvsInput) codigoPixvsInput.value = '';
 
   limpiarFamiliasNuevoCodigo();
   limpiarTiposNuevoCodigo();
@@ -983,10 +1007,15 @@ function limpiarVistaPreviaNuevoCodigo() {
   const descripcionVieja = document.getElementById('previewDescripcionVieja');
   const descripcionNueva = document.getElementById('previewDescripcionNueva');
   const codigoNuevo = document.getElementById('previewCodigoNuevo');
+  const codigoPixvsInput = document.getElementById('nuevoCodigoPixvs');
 
   if (descripcionVieja) descripcionVieja.textContent = '-';
   if (descripcionNueva) descripcionNueva.textContent = '-';
   if (codigoNuevo) codigoNuevo.textContent = '-';
+  if (codigoPixvsInput) {
+    codigoPixvsInput.value = '';
+    codigoPixvsInput.disabled = true;
+  }
 }
 
 /*************************************************
