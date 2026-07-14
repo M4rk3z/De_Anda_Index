@@ -172,11 +172,14 @@ async function login(event) {
   try {
     let { data, error } = await supabaseClient
       .from('Usuarios_Login')
-      .select('id, User_Nombre, User_Pass, Nivel, Nombre')
+      .select('id, User_Nombre, User_Pass, Nivel, Nombre, Permiso_Muliix')
       .ilike('User_Nombre', usuario)
       .maybeSingle();
 
-    if (error && String(error.message || '').includes('Nombre')) {
+    if (error && (
+      String(error.message || '').includes('Nombre') ||
+      String(error.message || '').includes('Permiso_Muliix')
+    )) {
       const respaldo = await supabaseClient
         .from('Usuarios_Login')
         .select('id, User_Nombre, User_Pass, Nivel')
@@ -231,6 +234,7 @@ async function login(event) {
     localStorage.setItem('usuarioNombre', data.Nombre || data.User_Nombre);
     localStorage.setItem('usuarioId', data.id);
     localStorage.setItem('usuarioNivel', String(nivelNormalizado));
+    localStorage.setItem('permisoMuliix', normalizarBooleanoMuliix(data.Permiso_Muliix) ? 'true' : 'false');
 
     entrarAlSistema();
   } catch (error) {
@@ -238,6 +242,55 @@ async function login(event) {
     status.textContent = 'No se pudo iniciar sesion: ' + error.message;
     status.style.color = '#b91c1c';
   }
+}
+
+async function refrescarDatosUsuarioSesion() {
+  const usuarioId = localStorage.getItem('usuarioId');
+  const usuarioActivo = localStorage.getItem('usuarioActivo');
+
+  if (!usuarioId && !usuarioActivo) {
+    return obtenerNombreUsuarioVisible();
+  }
+
+  let consulta = supabaseClient
+    .from('MD:Usuarios')
+    .select('id, User_Nombre, Nombre, Nivel, Permiso_Muliix')
+    .limit(1);
+
+  if (usuarioId) {
+    consulta = consulta.eq('id', usuarioId);
+  } else {
+    consulta = consulta.ilike('User_Nombre', usuarioActivo);
+  }
+
+  const { data, error } = await consulta.maybeSingle();
+
+  if (error || !data) {
+    return obtenerNombreUsuarioVisible();
+  }
+
+  const nivelNormalizado = normalizarNivelUsuario(data.Nivel);
+  if (nivelNormalizado !== null) {
+    localStorage.setItem('usuarioNivel', String(nivelNormalizado));
+  }
+
+  if (data.id !== null && data.id !== undefined) {
+    localStorage.setItem('usuarioId', data.id);
+  }
+
+  if (data.User_Nombre) {
+    localStorage.setItem('usuarioActivo', data.User_Nombre);
+  }
+
+  if (data.Nombre) {
+    localStorage.setItem('usuarioNombre', data.Nombre);
+  }
+
+  const permisoMuliix = nivelNormalizado === 0
+    || normalizarBooleanoMuliix(data.Permiso_Muliix);
+  localStorage.setItem('permisoMuliix', permisoMuliix ? 'true' : 'false');
+
+  return data.Nombre || obtenerNombreUsuarioVisible();
 }
 
 function entrarAlSistema() {
@@ -262,6 +315,13 @@ function entrarAlSistema() {
   appScreen.style.display = 'flex';
   if (topbarUserName) topbarUserName.textContent = nombreUsuario;
 
+  refrescarDatosUsuarioSesion().then(nombreActualizado => {
+    const topbarActual = document.getElementById('topbarUserName');
+    if (topbarActual && nombreActualizado) {
+      topbarActual.textContent = nombreActualizado;
+    }
+  });
+
   aplicarPermisosNavegacion();
 
   if (viewer) {
@@ -277,6 +337,7 @@ function cerrarSesion() {
   localStorage.removeItem('usuarioNombre');
   localStorage.removeItem('usuarioId');
   localStorage.removeItem('usuarioNivel');
+  localStorage.removeItem('permisoMuliix');
 
   const appScreen = document.getElementById('appScreen');
   const loginScreen = document.getElementById('loginScreen');

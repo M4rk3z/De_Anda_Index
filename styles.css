@@ -1263,6 +1263,7 @@ Boton de cerrar sesion
     minmax(220px, 1.2fr)
     minmax(240px, 1fr)
     minmax(150px, 190px)
+    minmax(130px, 150px)
     auto;
   gap: 14px;
   align-items: end;
@@ -1290,7 +1291,7 @@ Boton de cerrar sesion
 }
 
 .access-control-table {
-  min-width: 1280px;
+  min-width: 1420px;
   table-layout: fixed;
 }
 
@@ -1316,7 +1317,40 @@ Boton de cerrar sesion
 
 .access-control-table th:nth-child(5),
 .access-control-table td:nth-child(5) {
+  width: 150px;
+}
+
+.access-control-table th:nth-child(6),
+.access-control-table td:nth-child(6) {
   width: 220px;
+}
+
+.access-permission-check {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #0f2e4d;
+  font-weight: 700;
+}
+
+.access-permission-check[hidden] {
+  display: none;
+}
+
+.access-permission-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--sap-blue);
+}
+
+.access-permission-check-inline {
+  justify-content: center;
+}
+
+.access-permission-cell {
+  text-align: center;
+  vertical-align: middle;
 }
 
 .access-row-actions {

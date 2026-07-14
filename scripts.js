@@ -924,6 +924,8 @@ async function buscarMateriaPrima() {
 
   status.textContent = 'Buscando...';
 
+  await refrescarPermisoMuliixSesion();
+
   const columnasBusqueda = [
     'Codigo Pixvs',
     'Nombre Pixvs',
@@ -933,7 +935,7 @@ async function buscarMateriaPrima() {
 
   const { data, error } = await leerSupabasePaginado(
     'BD_General',
-    '"Codigo Pixvs","Nombre Pixvs","Codigo SAP","Nombre SAP","Version SAP","Revision SAP","Muliix","Status","Fecha de ultimo Cambio","Responsable"',
+    '"Id","Codigo Pixvs","Nombre Pixvs","Codigo SAP","Nombre SAP","Version SAP","Revision SAP","Muliix","Status","Fecha de ultimo Cambio","Responsable"',
     'Codigo SAP'
   );
 
@@ -986,7 +988,7 @@ async function buscarMateriaPrima() {
       <td>${escapeHtml(item['Nombre SAP'])}</td>
       <td>${escapeHtml(item['Version SAP'])}</td>
       <td>${escapeHtml(item['Revision SAP'])}</td>
-      <td>${renderMuliixCheckbox(item['Muliix'])}</td>
+      <td>${renderMuliixCheckbox(item['Muliix'], item['Id'])}</td>
       <td>${renderStatusBadge(item['Status'])}</td>
       <td>${escapeHtml(formatearFecha(item['Fecha de ultimo Cambio']))}</td>
       <td>${escapeHtml(item['Responsable'])}</td>
@@ -1086,16 +1088,170 @@ function renderStatusBadge(status) {
   `;
 }
 
-function renderMuliixCheckbox(valor) {
+function renderMuliixCheckbox(valor, id) {
+  const puedeEditar = usuarioPuedeEditarMuliixBuscador();
+  const idSeguro = Number(id);
+
   return `
     <input
       type="checkbox"
       class="muliix-checkbox"
       ${normalizarBooleanoMuliix(valor) ? 'checked' : ''}
-      disabled
+      ${puedeEditar && Number.isFinite(idSeguro) ? '' : 'disabled'}
+      onchange="guardarMuliixBuscador(${Number.isFinite(idSeguro) ? idSeguro : 0}, this)"
       aria-label="Muliix"
+      title="${puedeEditar ? 'Modificar Muliix' : 'No tienes permiso para modificar Muliix'}"
     >
   `;
+}
+
+function usuarioPuedeEditarMuliixBuscador() {
+  if (usuarioPuede(0)) return true;
+  return normalizarBooleanoMuliix(localStorage.getItem('permisoMuliix'));
+}
+
+async function refrescarPermisoMuliixSesion() {
+  if (usuarioPuede(0)) {
+    localStorage.setItem('permisoMuliix', 'true');
+    return true;
+  }
+
+  const usuarioId = localStorage.getItem('usuarioId');
+  if (!usuarioId || !supabaseClient) {
+    return usuarioPuedeEditarMuliixBuscador();
+  }
+
+  const { data, error } = await supabaseClient
+    .from('MD:Usuarios')
+    .select('User_Nombre,Nombre,Nivel,Permiso_Muliix')
+    .eq('id', usuarioId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return usuarioPuedeEditarMuliixBuscador();
+  }
+
+  const nivel = normalizarNivelUsuario(data.Nivel);
+  if (nivel !== null) {
+    localStorage.setItem('usuarioNivel', String(nivel));
+  }
+
+  if (data.User_Nombre) {
+    localStorage.setItem('usuarioActivo', data.User_Nombre);
+  }
+
+  if (data.Nombre || data.User_Nombre) {
+    localStorage.setItem('usuarioNombre', data.Nombre || data.User_Nombre);
+  }
+
+  const permiso = nivel === 0 || normalizarBooleanoMuliix(data.Permiso_Muliix);
+  localStorage.setItem('permisoMuliix', permiso ? 'true' : 'false');
+  return permiso;
+}
+
+async function obtenerNombreResponsableMuliix() {
+  const usuarioId = localStorage.getItem('usuarioId');
+  const usuarioActivo = localStorage.getItem('usuarioActivo');
+
+  let consulta = supabaseClient
+    .from('MD:Usuarios')
+    .select('User_Nombre,Nombre')
+    .limit(1);
+
+  if (usuarioId) {
+    consulta = consulta.eq('id', usuarioId);
+  } else if (usuarioActivo) {
+    consulta = consulta.ilike('User_Nombre', usuarioActivo);
+  } else {
+    return '';
+  }
+
+  const { data, error } = await consulta.maybeSingle();
+
+  if (error || !data?.Nombre) {
+    return '';
+  }
+
+  localStorage.setItem('usuarioActivo', data.User_Nombre || usuarioActivo || '');
+  localStorage.setItem('usuarioNombre', data.Nombre);
+
+  return data.Nombre;
+}
+
+async function guardarMuliixBuscador(id, checkbox) {
+  const status = document.getElementById('buscadorStatus');
+  await refrescarPermisoMuliixSesion();
+
+  if (!usuarioPuedeEditarMuliixBuscador()) {
+    if (status) status.textContent = 'No tienes permiso para modificar Muliix.';
+    if (checkbox) checkbox.checked = !checkbox.checked;
+    return;
+  }
+
+  if (!id) {
+    if (status) status.textContent = 'No se identifico el registro que se desea actualizar.';
+    if (checkbox) checkbox.checked = !checkbox.checked;
+    return;
+  }
+
+  const nuevoValor = Boolean(checkbox?.checked);
+  const responsable = await obtenerNombreResponsableMuliix();
+  const fechaCambio = new Date().toISOString();
+
+  if (!responsable) {
+    if (status) status.textContent = 'No se encontro el nombre del responsable. Revisa el campo Nombre en Control de Accesos.';
+    if (checkbox) checkbox.checked = !checkbox.checked;
+    return;
+  }
+
+  if (checkbox) checkbox.disabled = true;
+  if (status) status.textContent = 'Guardando Muliix...';
+
+  const { data, error } = await supabaseClient
+    .from('BD_General')
+    .update({
+      Muliix: nuevoValor,
+      'Fecha de ultimo Cambio': fechaCambio,
+      Responsable: responsable
+    })
+    .eq('Id', id)
+    .select('"Id","Muliix","Fecha de ultimo Cambio","Responsable"')
+    .maybeSingle();
+
+  if (error || !data) {
+    if (checkbox) {
+      checkbox.checked = !nuevoValor;
+      checkbox.disabled = false;
+    }
+
+    if (status) {
+      status.textContent = error
+        ? 'Error al guardar Muliix: ' + error.message
+        : 'No se actualizo Muliix. Revisa permisos de UPDATE en BD_General.';
+    }
+    return;
+  }
+
+  if (checkbox) checkbox.disabled = false;
+  actualizarFilaMuliixBuscador(checkbox, data);
+  if (status) status.textContent = 'Muliix actualizado correctamente.';
+}
+
+function actualizarFilaMuliixBuscador(checkbox, data) {
+  const fila = checkbox?.closest('tr');
+  if (!fila || !data) return;
+
+  const celdas = fila.querySelectorAll('td');
+  const fechaCelda = celdas[8];
+  const responsableCelda = celdas[9];
+
+  if (fechaCelda) {
+    fechaCelda.textContent = formatearFecha(data['Fecha de ultimo Cambio']);
+  }
+
+  if (responsableCelda) {
+    responsableCelda.textContent = data.Responsable || '';
+  }
 }
 
 function normalizarBooleanoMuliix(valor) {

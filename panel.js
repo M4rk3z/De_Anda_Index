@@ -215,6 +215,7 @@ function renderResultadosEditorMaestro(rows) {
   if (!tbody) return;
 
   editorMaestroRows = rows || [];
+  const puedeEditarMuliix = usuarioPuedeEditarMuliix();
 
   if (!editorMaestroRows.length) {
     tbody.innerHTML = '<tr><td colspan="11">No se encontraron resultados.</td></tr>';
@@ -288,7 +289,9 @@ function renderResultadosEditorMaestro(rows) {
           class="muliix-checkbox"
           type="checkbox"
           ${normalizarBooleanoMuliix(row['Muliix']) ? 'checked' : ''}
+          ${puedeEditarMuliix ? '' : 'disabled'}
           aria-label="Muliix"
+          title="${puedeEditarMuliix ? 'Muliix' : 'No tienes permiso para modificar Muliix'}"
         >
       </td>
 
@@ -365,11 +368,14 @@ async function guardarRegistroMaestro(index) {
     'Nombre SAP': valorONull(obtenerValorMaestro('maestro-nombre-sap', index)),
     'Version SAP': versionSap,
     'Revision SAP': revisionSap,
-    'Muliix': obtenerCheckboxMaestro('maestro-muliix', index),
     'Status': obtenerValorMaestro('maestro-status', index),
     'Fecha de ultimo Cambio': fechaCambio,
     'Responsable': responsable
   };
+
+  if (usuarioPuedeEditarMuliix()) {
+    payload['Muliix'] = obtenerCheckboxMaestro('maestro-muliix', index);
+  }
 
   if (statusBox) statusBox.textContent = 'Guardando cambios...';
 
@@ -458,6 +464,16 @@ function esUsuarioRootOculto(rowOrUserName) {
   ));
 }
 
+function usuarioPuedeEditarMuliix() {
+  if (usuarioPuede(0)) return true;
+  return normalizarBooleanoMuliix(localStorage.getItem('permisoMuliix'));
+}
+
+function debeMostrarPermisoMuliix(nivel) {
+  const nivelNormalizado = normalizarNivelUsuario(nivel);
+  return nivelNormalizado === 1 || nivelNormalizado === 2;
+}
+
 function renderControlAccesos() {
   if (!usuarioPuede(0)) {
     mostrarAccesoDenegado();
@@ -495,13 +511,18 @@ function renderControlAccesos() {
 
         <div class="field-block">
           <label for="nuevoNivelAcceso">Nivel</label>
-          <select id="nuevoNivelAcceso">
+          <select id="nuevoNivelAcceso" onchange="actualizarPermisoMuliixNuevoUsuario()">
             <option value="">Selecciona un nivel</option>
             <option value="0">0 - Control Total</option>
             <option value="1">1 - Administrador</option>
             <option value="2">2 - Usuario</option>
           </select>
         </div>
+
+        <label id="nuevoPermisoMuliixWrap" class="access-permission-check" hidden>
+          <span>Permiso Muliix</span>
+          <input id="nuevoPermisoMuliix" type="checkbox">
+        </label>
 
         <button type="button" onclick="agregarUsuarioAcceso()">Agregar usuario</button>
       </div>
@@ -516,11 +537,12 @@ function renderControlAccesos() {
               <th>Nombre</th>
               <th>Contraseña</th>
               <th>Nivel</th>
+              <th>Permiso Muliix</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody id="controlAccesosResultados">
-            <tr><td colspan="5">Cargando usuarios...</td></tr>
+            <tr><td colspan="6">Cargando usuarios...</td></tr>
           </tbody>
         </table>
       </div>
@@ -540,26 +562,30 @@ async function cargarUsuariosAcceso() {
   status.textContent = 'Cargando usuarios...';
 
   let { data, error } = await supabaseClient
-    .from('Usuarios_Login')
-    .select('id,User_Nombre,Nombre,User_Pass,Nivel')
+    .from('MD:Usuarios')
+    .select('id,User_Nombre,Nombre,User_Pass,Nivel,Permiso_Muliix')
     .order('User_Nombre', { ascending: true });
 
-  if (error && String(error.message || '').includes('Nombre')) {
+  if (error && (
+    String(error.message || '').includes('Nombre') ||
+    String(error.message || '').includes('Permiso_Muliix')
+  )) {
     const respaldo = await supabaseClient
-      .from('Usuarios_Login')
+      .from('MD:Usuarios')
       .select('id,User_Nombre,User_Pass,Nivel')
       .order('User_Nombre', { ascending: true });
 
     data = (respaldo.data || []).map(row => ({
       ...row,
-      Nombre: row.User_Nombre
+      Nombre: row.User_Nombre,
+      Permiso_Muliix: false
     }));
     error = respaldo.error;
   }
 
   if (error) {
     status.textContent = 'Error al cargar usuarios: ' + error.message;
-    tbody.innerHTML = '<tr><td colspan="5">No se pudieron cargar los usuarios.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6">No se pudieron cargar los usuarios.</td></tr>';
     return;
   }
 
@@ -573,7 +599,7 @@ function renderUsuariosAcceso() {
   if (!tbody) return;
 
   if (!controlAccesosRows.length) {
-    tbody.innerHTML = '<tr><td colspan="5">No hay usuarios registrados.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6">No hay usuarios registrados.</td></tr>';
     return;
   }
 
@@ -596,9 +622,23 @@ function renderUsuariosAcceso() {
         </div>
       </td>
       <td>
-        <select id="acceso-nivel-${index}" class="master-input">
+        <select id="acceso-nivel-${index}" class="master-input" onchange="actualizarPermisoMuliixFila(${index})">
           ${renderOpcionesNivelAcceso(row.Nivel)}
         </select>
+      </td>
+      <td class="access-permission-cell">
+        <label
+          id="acceso-muliix-wrap-${index}"
+          class="access-permission-check access-permission-check-inline"
+          ${debeMostrarPermisoMuliix(row.Nivel) ? '' : 'hidden'}
+        >
+          <input
+            id="acceso-muliix-${index}"
+            type="checkbox"
+            ${normalizarBooleanoMuliix(row.Permiso_Muliix) ? 'checked' : ''}
+          >
+          <span>Modificar</span>
+        </label>
       </td>
       <td>
         <div class="access-row-actions">
@@ -626,6 +666,26 @@ function renderOpcionesNivelAcceso(nivelActual) {
   `).join('');
 }
 
+function actualizarPermisoMuliixNuevoUsuario() {
+  const nivel = document.getElementById('nuevoNivelAcceso')?.value || '';
+  const wrapper = document.getElementById('nuevoPermisoMuliixWrap');
+  const checkbox = document.getElementById('nuevoPermisoMuliix');
+  const mostrar = debeMostrarPermisoMuliix(nivel);
+
+  if (wrapper) wrapper.hidden = !mostrar;
+  if (!mostrar && checkbox) checkbox.checked = false;
+}
+
+function actualizarPermisoMuliixFila(index) {
+  const nivel = document.getElementById(`acceso-nivel-${index}`)?.value || '';
+  const wrapper = document.getElementById(`acceso-muliix-wrap-${index}`);
+  const checkbox = document.getElementById(`acceso-muliix-${index}`);
+  const mostrar = debeMostrarPermisoMuliix(nivel);
+
+  if (wrapper) wrapper.hidden = !mostrar;
+  if (!mostrar && checkbox) checkbox.checked = false;
+}
+
 function alternarPasswordAcceso(inputId, button) {
   const input = document.getElementById(inputId);
   if (!input) return;
@@ -645,11 +705,15 @@ async function agregarUsuarioAcceso() {
   const nombreInput = document.getElementById('nuevoNombreAcceso');
   const passwordInput = document.getElementById('nuevoPasswordAcceso');
   const nivelInput = document.getElementById('nuevoNivelAcceso');
+  const permisoMuliixInput = document.getElementById('nuevoPermisoMuliix');
   const status = document.getElementById('controlAccesosStatus');
   const usuario = usuarioInput ? usuarioInput.value.trim() : '';
   const nombre = nombreInput ? nombreInput.value.trim() : '';
   const password = passwordInput ? passwordInput.value : '';
   const nivel = nivelInput ? nivelInput.value.trim() : '';
+  const permisoMuliix = debeMostrarPermisoMuliix(nivel)
+    ? Boolean(permisoMuliixInput?.checked)
+    : false;
 
   if (!usuario || !nombre || !password || !nivel) {
     if (status) status.textContent = 'Escribe usuario, nombre, contraseña y nivel.';
@@ -662,7 +726,7 @@ async function agregarUsuarioAcceso() {
   }
 
   const { data: existente, error: errorConsulta } = await supabaseClient
-    .from('Usuarios_Login')
+    .from('MD:Usuarios')
     .select('id')
     .ilike('User_Nombre', usuario)
     .maybeSingle();
@@ -683,7 +747,8 @@ async function agregarUsuarioAcceso() {
       User_Nombre: usuario,
       Nombre: nombre,
       User_Pass: password,
-      Nivel: nivel
+      Nivel: nivel,
+      Permiso_Muliix: permisoMuliix
     });
 
   if (error) {
@@ -695,6 +760,8 @@ async function agregarUsuarioAcceso() {
   nombreInput.value = '';
   passwordInput.value = '';
   nivelInput.value = '';
+  if (permisoMuliixInput) permisoMuliixInput.checked = false;
+  actualizarPermisoMuliixNuevoUsuario();
   await cargarUsuariosAcceso();
   if (status) status.textContent = 'Usuario agregado correctamente.';
   mostrarPopupGuardado('Usuario agregado correctamente.');
@@ -711,6 +778,7 @@ async function guardarUsuarioAcceso(index) {
   const nombreInput = document.getElementById(`acceso-nombre-${index}`);
   const passwordInput = document.getElementById(`acceso-password-${index}`);
   const nivelInput = document.getElementById(`acceso-nivel-${index}`);
+  const permisoMuliixInput = document.getElementById(`acceso-muliix-${index}`);
   const status = document.getElementById('controlAccesosStatus');
   if (!row || !usuarioInput || !nombreInput || !passwordInput || !nivelInput) return;
 
@@ -723,6 +791,9 @@ async function guardarUsuarioAcceso(index) {
   const nombre = nombreInput.value.trim();
   const password = passwordInput.value;
   const nivel = nivelInput.value.trim();
+  const permisoMuliix = debeMostrarPermisoMuliix(nivel)
+    ? Boolean(permisoMuliixInput?.checked)
+    : false;
 
   if (!usuario || !nombre || !password || !nivel) {
     if (status) status.textContent = 'Usuario, nombre, contraseña y nivel no pueden quedar vacíos.';
@@ -740,10 +811,11 @@ async function guardarUsuarioAcceso(index) {
       User_Nombre: usuario,
       Nombre: nombre,
       User_Pass: password,
-      Nivel: nivel
+      Nivel: nivel,
+      Permiso_Muliix: permisoMuliix
     })
     .eq('id', row.id)
-    .select('id,User_Nombre,Nombre,User_Pass,Nivel')
+    .select('id,User_Nombre,Nombre,User_Pass,Nivel,Permiso_Muliix')
     .maybeSingle();
 
   if (error) {
@@ -763,6 +835,7 @@ async function guardarUsuarioAcceso(index) {
     localStorage.setItem('usuarioActivo', data.User_Nombre);
     localStorage.setItem('usuarioNombre', data.Nombre || data.User_Nombre);
     localStorage.setItem('usuarioNivel', String(data.Nivel ?? ''));
+    localStorage.setItem('permisoMuliix', normalizarBooleanoMuliix(data.Permiso_Muliix) ? 'true' : 'false');
     const topbarUserName = document.getElementById('topbarUserName');
     if (topbarUserName) {
       topbarUserName.textContent = data.Nombre || data.User_Nombre;
