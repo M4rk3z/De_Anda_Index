@@ -1,4 +1,21 @@
 let editorMaestroRows = [];
+const GOOGLE_SHEET_BD_GENERAL_ID = '1ZLRZQha9-TC3JF_Waan9suSIZ9l2U6kMeuHlRhQKBCo';
+const GOOGLE_SHEET_BD_GENERAL_URL = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_BD_GENERAL_ID}/edit`;
+const GOOGLE_SHEET_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxzyr0DbU0zuWCZX7racR-82u-Tz8KvmoAOdvMFihkzMCc5L7fAje95nl1plr2tg1ehZQ/exec';
+const GOOGLE_SHEET_EXPORT_CHUNK_SIZE = 400;
+const BD_GENERAL_EXPORT_COLUMNS = [
+  'Id',
+  'Codigo Pixvs',
+  'Nombre Pixvs',
+  'Codigo SAP',
+  'Nombre SAP',
+  'Version SAP',
+  'Revision SAP',
+  'Muliix',
+  'Status',
+  'Fecha de ultimo Cambio',
+  'Responsable'
+];
 
 const CATALOGOS_ADMIN = {
   'DT_Grupos': {
@@ -74,7 +91,7 @@ function renderPanelControl() {
     <div class="catalog-wrapper">
       <div class="catalog-header">
         <h2>Bienvenido, ${escapeHtml(nombreUsuario)}</h2>
-        <p>Administracion de Base de Datos Local de Codificacion.</p>
+        <p>Herramientas de Administracion.</p>
       </div>
 
       <div class="nuevo-codigo-panel">
@@ -82,11 +99,10 @@ function renderPanelControl() {
           <button onclick="renderEditorMaestro()">Editor Maestro</button>
           ${usuarioPuede(0) ? '<button onclick="renderControlAccesos()">Control de Accesos</button>' : ''}
           ${usuarioPuede(0) ? '<button onclick="renderAdministrarCatalogos()">Administrar Catalogos</button>' : ''}
+          ${usuarioPuede(0) ? '<button onclick="renderFuncionesAdicionales()">Importar a Sheets</button>' : ''}
         </div>
 
-        <div id="panelControlContenido" class="panel-control-content">
-          <div class="status-box">Selecciona Editor Maestro para continuar.</div>
-        </div>
+        <div id="panelControlContenido" class="panel-control-content"></div>
       </div>
     </div>
   `;
@@ -1252,4 +1268,307 @@ function aplicarIdentificadorCatalogo(query, config, row) {
   });
 
   return query;
+}
+
+function renderFuncionesAdicionales() {
+  if (!usuarioPuede(0)) {
+    mostrarAccesoDenegado();
+    return;
+  }
+
+  const contenedor = document.getElementById('panelControlContenido');
+  if (!contenedor) return;
+
+  contenedor.innerHTML = `
+    <div class="control-card panel-extra-card">
+      <div class="catalog-header">
+        <h2>Importar a Sheets</h2>
+        <p>Exportacion de BD_General a Google Sheets.</p>
+      </div>
+
+      <div class="panel-sync-dashboard">
+        <div class="dashboard-kpi-card">
+          <span>Articulos en Supabase</span>
+          <strong id="syncSupabaseCount">-</strong>
+        </div>
+
+        <div class="dashboard-kpi-card">
+          <span>Articulos en Google Sheet</span>
+          <strong id="syncSheetCount">-</strong>
+        </div>
+
+        <div class="dashboard-kpi-card">
+          <span>Estado</span>
+          <strong id="syncEstado">-</strong>
+        </div>
+      </div>
+
+      <div class="panel-sync-actions">
+        <button type="button" onclick="actualizarDashboardExportacionSheet()">Actualizar conteos</button>
+        <button type="button" onclick="exportarBDGeneralGoogleSheet()">Exportar a Google Sheet</button>
+        <a href="${escapeHtml(GOOGLE_SHEET_BD_GENERAL_URL)}" target="_blank" rel="noopener">Abrir Google Sheet</a>
+      </div>
+
+      <div id="panelSyncStatus" class="status-box">
+        Cargando informacion de sincronizacion...
+      </div>
+    </div>
+  `;
+
+  actualizarDashboardExportacionSheet();
+}
+
+async function actualizarDashboardExportacionSheet() {
+  const status = document.getElementById('panelSyncStatus');
+  const supabaseCount = document.getElementById('syncSupabaseCount');
+  const sheetCount = document.getElementById('syncSheetCount');
+  const estado = document.getElementById('syncEstado');
+
+  if (status) status.textContent = 'Consultando conteos...';
+
+  const resultadoSupabase = await obtenerRegistrosBDGeneralExportacion();
+
+  if (resultadoSupabase.error) {
+    if (status) status.textContent = 'Error al consultar BD_General: ' + resultadoSupabase.error.message;
+    return;
+  }
+
+  const totalSupabase = resultadoSupabase.data.length;
+  if (supabaseCount) supabaseCount.textContent = String(totalSupabase);
+
+  if (!GOOGLE_SHEET_WEB_APP_URL) {
+    if (sheetCount) sheetCount.textContent = 'Config.';
+    if (estado) estado.textContent = 'Pendiente';
+    if (status) {
+      status.textContent = 'Falta configurar GOOGLE_SHEET_WEB_APP_URL en panel.js para leer y exportar al Sheet.';
+    }
+    return;
+  }
+
+  const resultadoSheet = await consultarGoogleSheetBDGeneral('count');
+
+  if (!resultadoSheet.ok) {
+    if (sheetCount) sheetCount.textContent = 'Error';
+    if (estado) estado.textContent = 'Revisar';
+    if (status) status.textContent = resultadoSheet.message;
+    return;
+  }
+
+  const totalSheet = Number(resultadoSheet.count || 0);
+  if (sheetCount) sheetCount.textContent = String(totalSheet);
+  if (estado) estado.textContent = totalSupabase === totalSheet ? 'Correcto' : 'Diferencia';
+  if (status) {
+    status.textContent = totalSupabase === totalSheet
+      ? 'Los conteos coinciden.'
+      : 'Los conteos no coinciden. Puedes exportar BD_General al Sheet.';
+  }
+}
+
+async function obtenerRegistrosBDGeneralExportacion() {
+  const columnas = BD_GENERAL_EXPORT_COLUMNS
+    .map(columna => `"${columna}"`)
+    .join(',');
+
+  const resultado = await leerSupabasePaginado(
+    'BD_General',
+    columnas,
+    'Id',
+    false
+  );
+
+  return {
+    data: resultado.data || [],
+    error: resultado.error
+  };
+}
+
+async function consultarGoogleSheetBDGeneral(action, payload = null) {
+  if (action === 'count') {
+    return consultarConteoGoogleSheetJsonp();
+  }
+
+  if (action === 'replace' || action === 'replaceStart' || action === 'appendChunk') {
+    return enviarGoogleSheetSinCors(action, payload);
+  }
+
+  return {
+    ok: false,
+    message: 'Accion no valida para Google Sheet.'
+  };
+}
+
+function consultarConteoGoogleSheetJsonp() {
+  return new Promise(resolve => {
+    const callbackName = `googleSheetCallback_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+    const script = document.createElement('script');
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      resolve({
+        ok: false,
+        message: 'No se recibio respuesta del Google Apps Script.'
+      });
+    }, 20000);
+
+    function cleanup() {
+      window.clearTimeout(timeout);
+      delete window[callbackName];
+      script.remove();
+    }
+
+    window[callbackName] = data => {
+      cleanup();
+      resolve(data);
+    };
+
+    const params = new URLSearchParams({
+      action: 'count',
+      sheetId: GOOGLE_SHEET_BD_GENERAL_ID,
+      callback: callbackName
+    });
+
+    script.onerror = () => {
+      cleanup();
+      resolve({
+        ok: false,
+        message: 'No se pudo cargar el conteo desde Google Apps Script.'
+      });
+    };
+
+    script.src = `${GOOGLE_SHEET_WEB_APP_URL}?${params.toString()}`;
+    document.body.appendChild(script);
+  });
+}
+
+async function enviarGoogleSheetSinCors(action, payload = null) {
+  try {
+    await fetch(GOOGLE_SHEET_WEB_APP_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action,
+        sheetId: GOOGLE_SHEET_BD_GENERAL_ID,
+        payload
+      })
+    });
+
+    return { ok: true, message: 'Solicitud enviada al Google Sheet.' };
+  } catch (error) {
+    return {
+      ok: false,
+      message: 'No se pudo conectar con Google Apps Script: ' + error.message
+    };
+  }
+}
+
+async function exportarBDGeneralGoogleSheet() {
+  const status = document.getElementById('panelSyncStatus');
+
+  if (!usuarioPuede(0)) {
+    mostrarAccesoDenegado();
+    return;
+  }
+
+  if (!GOOGLE_SHEET_WEB_APP_URL) {
+    if (status) {
+      status.textContent = 'Falta configurar GOOGLE_SHEET_WEB_APP_URL en panel.js antes de exportar.';
+    }
+    return;
+  }
+
+  actualizarBarraExportacionSheet(0, 'Leyendo BD_General desde Supabase...');
+
+  const resultado = await obtenerRegistrosBDGeneralExportacion();
+
+  if (resultado.error) {
+    if (status) status.textContent = 'Error al leer BD_General: ' + resultado.error.message;
+    return;
+  }
+
+  const rows = resultado.data.map(row => (
+    BD_GENERAL_EXPORT_COLUMNS.map(columna => row[columna] ?? '')
+  ));
+
+  actualizarBarraExportacionSheet(2, `Preparando Google Sheet para ${rows.length} registros...`);
+
+  const inicioExportacion = await consultarGoogleSheetBDGeneral('replaceStart', {
+    columns: BD_GENERAL_EXPORT_COLUMNS,
+    totalRows: rows.length
+  });
+
+  if (!inicioExportacion.ok) {
+    if (status) status.textContent = inicioExportacion.message || 'No se pudo iniciar la exportacion.';
+    return;
+  }
+
+  for (let index = 0; index < rows.length; index += GOOGLE_SHEET_EXPORT_CHUNK_SIZE) {
+    const chunk = rows.slice(index, index + GOOGLE_SHEET_EXPORT_CHUNK_SIZE);
+    const inicioFila = index + 2;
+
+    if (status) {
+      const porcentaje = Math.round(((index + chunk.length) / rows.length) * 92) + 5;
+      actualizarBarraExportacionSheet(
+        porcentaje,
+        `Exportando registros ${index + 1}-${index + chunk.length} de ${rows.length}...`
+      );
+    }
+
+    const resultadoChunk = await consultarGoogleSheetBDGeneral('appendChunk', {
+      startRow: inicioFila,
+      rows: chunk
+    });
+
+    if (!resultadoChunk.ok) {
+      if (status) status.textContent = resultadoChunk.message || 'No se pudo enviar un bloque al Google Sheet.';
+      return;
+    }
+
+    await esperarExportacionSheet(180);
+  }
+
+  actualizarBarraExportacionSheet(98, 'Verificando registros exportados en Google Sheet...');
+
+  await esperarExportacionSheet(3500);
+
+  const verificacion = await consultarGoogleSheetBDGeneral('count');
+  const totalSheet = Number(verificacion.count || 0);
+
+  if (!verificacion.ok || totalSheet !== rows.length) {
+    if (status) {
+      status.textContent = verificacion.ok
+        ? `Exportacion enviada, pero el Sheet reporta ${totalSheet} de ${rows.length} registros. Revisa Apps Script.`
+        : verificacion.message;
+    }
+    await actualizarDashboardExportacionSheet();
+    return;
+  }
+
+  actualizarBarraExportacionSheet(100, `Exportacion completa. Registros en Sheet: ${totalSheet}.`);
+
+  mostrarPopupGuardado('BD_General exportada correctamente a Google Sheets.', {
+    titulo: 'Exportacion completa'
+  });
+
+  await actualizarDashboardExportacionSheet();
+}
+
+function esperarExportacionSheet(ms) {
+  return new Promise(resolve => window.setTimeout(resolve, ms));
+}
+
+function actualizarBarraExportacionSheet(porcentaje, mensaje) {
+  const status = document.getElementById('panelSyncStatus');
+  if (!status) return;
+
+  const progreso = Math.max(0, Math.min(100, Number(porcentaje) || 0));
+  status.classList.add('status-box-loading', 'panel-export-progress');
+  status.innerHTML = `
+    <div class="panel-export-progress-head">
+      <span class="status-loading-label">${escapeHtml(mensaje)}</span>
+      <strong>${progreso}%</strong>
+    </div>
+    <span class="status-loading-track" aria-hidden="true">
+      <span class="status-loading-bar panel-export-progress-bar" style="width:${progreso}%"></span>
+    </span>
+  `;
 }

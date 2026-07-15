@@ -7,6 +7,7 @@ const supabaseClient = supabase.createClient(
 );
 
 let dashboardCharts = [];
+const DASHBOARD_GRUPOS_OCULTOS = new Set(['I']);
 
 const DASHBOARD_GRUPOS_BASE = [
   { Id: 'A', Grupo: 'P.T.AVICOLA' },
@@ -685,7 +686,7 @@ function contarPorGrupoCodigo(codigos, grupos = []) {
     const id = String(grupo.ID || grupo.Id || grupo.id || '').trim().toUpperCase();
     const nombre = String(grupo.Grupo || '').trim();
 
-    if (id && nombre) {
+    if (id && nombre && !DASHBOARD_GRUPOS_OCULTOS.has(id)) {
       gruposPorId.set(id, nombre);
     }
   });
@@ -693,6 +694,7 @@ function contarPorGrupoCodigo(codigos, grupos = []) {
   (codigos || []).forEach(item => {
     const codigo = String(item['Codigo SAP'] || '').trim();
     const grupo = codigo ? codigo.charAt(0).toUpperCase() : 'S/D';
+    if (DASHBOARD_GRUPOS_OCULTOS.has(grupo)) return;
     contador.set(grupo, (contador.get(grupo) || 0) + 1);
   });
 
@@ -830,7 +832,7 @@ function combinarDashboardGrupos(gruposSupabase = []) {
     const id = String(grupo.Id || grupo.ID || grupo.id || '').trim().toUpperCase();
     const nombre = String(grupo.Grupo || '').trim();
 
-    if (id && nombre) {
+    if (id && nombre && !DASHBOARD_GRUPOS_OCULTOS.has(id)) {
       porId.set(id, { Id: id, Grupo: nombre });
     }
   });

@@ -327,8 +327,45 @@ body { width: 100%; height: 100%; font-family: Arial, sans-serif; background: #f
 }
 .control-card .nuevo-codigo-grid { grid-template-columns: minmax(240px, 1fr) 160px; }
 .control-card .field-block button { min-height: 44px; }
+.panel-sync-dashboard {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(150px, 1fr));
+  gap: 14px;
+}
+.panel-sync-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.panel-sync-actions a {
+  color: var(--sap-blue-dark);
+  font-weight: 700;
+  text-decoration: none;
+}
+.panel-sync-actions a:hover {
+  text-decoration: underline;
+}
+.panel-export-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.panel-export-progress-head strong {
+  color: var(--sap-blue-dark);
+}
+.panel-export-progress-bar {
+  animation: none;
+  transition: width 0.2s ease;
+  transform: none;
+}
 @media (max-width: 700px) {
   .control-card .nuevo-codigo-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-sync-dashboard {
     grid-template-columns: 1fr;
   }
 }
@@ -360,6 +397,29 @@ body { width: 100%; height: 100%; font-family: Arial, sans-serif; background: #f
 }
 .solicitudes-toolbar button:hover { background: #1f2937; transform: translateY(-1px); }
 .solicitudes-table td:nth-child(4) { white-space: normal; min-width: 280px; }
+.solicitud-selector-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.solicitud-selector-sidebar,
+.solicitud-selector-content {
+  min-width: 0;
+}
+.solicitud-selector-sidebar {
+  display: grid;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+}
+.solicitud-selector-content .solicitud-paper {
+  padding: 0;
+  border: 0;
+}
+.solicitud-selector-help {
+  font-size: 12px;
+}
 
 /* Solicitudes: formulario y PDF */
 .solicitud-paper { display: flex; flex-direction: column; gap: 14px; background: #ffffff; border: 1px solid #d1d5db; padding: 18px; color: #111827; }
@@ -414,6 +474,14 @@ body { width: 100%; height: 100%; font-family: Arial, sans-serif; background: #f
 .solicitud-actions button:first-child { background: #e5e7eb; color: #111827; }
 .solicitud-actions button:disabled { background: #cbd5e1; color: #64748b; cursor: not-allowed; }
 @media (max-width: 900px) {
+  .solicitud-selector-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .solicitud-selector-sidebar {
+    position: static;
+  }
+
   .solicitud-row.three-cols,
   .solicitud-row.four-cols {
     grid-template-columns: 1fr;
@@ -686,6 +754,27 @@ body { width: 100%; height: 100%; font-family: Arial, sans-serif; background: #f
 }
 .solicitud-open-button:hover { background: #1e293b; }
 .solicitud-row-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.solicitud-delete-cell {
+  width: 44px;
+  text-align: center;
+  vertical-align: middle;
+}
+.solicitud-delete-icon {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  place-items: center;
+  padding: 0;
+  border-color: #9b0000;
+  border-radius: 4px;
+  background: var(--sap-danger);
+  color: #ffffff;
+  cursor: pointer;
+}
+.solicitud-delete-icon:hover {
+  background: #8b0000;
+}
 .solicitud-change-button {
   min-width: 118px;
   padding: 8px 14px;
@@ -1107,6 +1196,9 @@ select option.option-sin-relacion:disabled { background: #fff2df; color: #c35500
 .solicitud-comentarios-field { margin: 0 18px 18px; padding-top: 14px; border-top: 1px solid var(--sap-border-soft); }
 .solicitud-comentarios { width: 100%; min-height: 82px; padding: 10px 12px; resize: vertical; }
 .solicitud-comentarios-ayuda { display: block; margin-top: 5px; color: var(--sap-muted); font-size: 11px; }
+.solicitud-comentario-edicion {
+  margin-top: 8px;
+}
 .topbar-session { display: flex; align-items: center; gap: 12px; margin-left: auto; }
 .topbar-user-name {
   max-width: 280px;
