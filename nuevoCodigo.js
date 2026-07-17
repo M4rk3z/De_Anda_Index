@@ -1,3 +1,4 @@
+// Configuracion del modulo Nuevo Codigo y columnas de BD_General.
 const TABLA_CODIGOS = 'BD_General';
 const COLUMNA_CODIGO_PIXVS = 'Codigo Pixvs';
 const COLUMNA_CODIGO = 'Codigo SAP';
@@ -5,6 +6,7 @@ const COLUMNA_DESCRIPCION_1 = 'Nombre Pixvs';
 const COLUMNA_DESCRIPCION_2 = 'Nombre SAP';
 const COLUMNA_FECHA_CAMBIO = 'Fecha de ultimo Cambio';
 
+// Estado temporal del formulario; se reinicia al limpiar o cambiar grupo.
 let nuevoCodigoState = {
   grupoNombre: '',
   grupoId: '',
@@ -79,6 +81,7 @@ function marcarOpcionSinRelacion(option, motivo = 'Sin relacion') {
  * RENDER PRINCIPAL
  *************************************************/
 
+// Vista principal de Nuevo Codigo; tambien alimenta el Simulador ADN.
 function renderNuevoCodigo(opciones = {}) {
   nuevoCodigoModoSimulador = Boolean(opciones.simulador);
 
@@ -221,6 +224,7 @@ function renderSimuladorADN() {
  * GRUPOS
  *************************************************/
 
+// Carga de catalogos relacionados: grupos, familias, tipos y materiales.
 async function cargarGruposNuevoCodigo() {
   const grupoSelect = document.getElementById('nuevoCodigoGrupo');
 
@@ -669,6 +673,7 @@ function onNuevoCodigoDescripcionChange() {
  * CONSECUTIVO
  *************************************************/
 
+// Generacion del Codigo SAP usando nomenclatura y consecutivos existentes.
 async function generarConsecutivoNuevoCodigo() {
   if (!nuevoCodigoState.grupoNombre) {
     setNuevoCodigoStatus('Selecciona un grupo.');
@@ -796,6 +801,7 @@ function asignarConsecutivoNuevoCodigo(precodigo, consecutivoNumero, longitudCon
  * GUARDAR
  *************************************************/
 
+// Guardado final en BD_General; el Simulador ADN nunca permite guardar.
 async function guardarNuevoCodigoMateriaPrima() {
   if (nuevoCodigoModoSimulador) {
     setNuevoCodigoStatus('Simulacion lista. Este modulo no guarda codigos.');
@@ -915,6 +921,7 @@ async function validarDescripcionUsadaNuevoCodigo(descripcion) {
  * VISTA PREVIA
  *************************************************/
 
+// Vista previa final antes de guardar, con Codigo Pixvs opcional.
 function prepararVistaPreviaNuevoCodigo() {
   const descripcionInput = document.getElementById('nuevoCodigoDescripcionVieja');
   const descripcion = descripcionInput.value.trim();
@@ -1366,6 +1373,7 @@ function construirPrecodigoMPNuevoCodigo() {
  * UTILIDADES
  *************************************************/
 
+// Mensajes de estado del modulo Nuevo Codigo.
 function setNuevoCodigoStatus(message) {
   const status = document.getElementById('nuevoCodigoStatus');
 

@@ -1,3 +1,4 @@
+// Configuracion de Supabase y conexion principal.
 const SUPABASE_URL = 'https://ehwxvirqiwztonbgosfy.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVod3h2aXJxaXd6dG9uYmdvc2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNDAwMTUsImV4cCI6MjA5NTkxNjAxNX0.VzMoS_kOFIjvSz_ewdu6Q9_vAIwAnTuqPTlxFvzfJk8';
 
@@ -9,6 +10,7 @@ const supabaseClient = supabase.createClient(
 let dashboardCharts = [];
 const DASHBOARD_GRUPOS_OCULTOS = new Set(['I']);
 
+// Grupos visibles del dashboard; el conteo se calcula con la primera letra de Codigo SAP.
 const DASHBOARD_GRUPOS_BASE = [
   { Id: 'A', Grupo: 'P.T.AVICOLA' },
   { Id: 'V', Grupo: 'P.T.PLANTAS DE ALIMENTOS' },
@@ -28,72 +30,6 @@ const DASHBOARD_GRUPOS_BASE = [
   { Id: 'L', Grupo: 'IMPORTACIONES' },
   { Id: 'Z', Grupo: 'ACTIVOS' }
 ];
-
-const ACCESOS_POR_SECCION = {
-  bienvenida: [0, 1, 2],
-  buscador: [0, 1, 2],
-  simuladorADN: [0, 1, 2],
-  nuevoCodigo: [0, 1],
-  panelControl: [0, 1],
-  solicitudes: [0, 1, 2],
-  manual: [0, 1, 2]
-};
-
-function obtenerNivelUsuario() {
-  const valor = localStorage.getItem('usuarioNivel');
-  return normalizarNivelUsuario(valor);
-}
-
-function normalizarNivelUsuario(valor) {
-  if (valor === null || valor === undefined || valor === '') return null;
-
-  const texto = String(valor).trim();
-  const coincidenciaNumerica = texto.match(/(?:^|\D)([012])(?:\D|$)/);
-
-  if (coincidenciaNumerica) {
-    return Number(coincidenciaNumerica[1]);
-  }
-
-  const etiqueta = texto
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase();
-
-  if (etiqueta.includes('CONTROL TOTAL')) return 0;
-  if (etiqueta.includes('ADMINISTRADOR') || etiqueta === 'ADMIN') return 1;
-  if (etiqueta.includes('USUARIO') || etiqueta.includes('OPERADOR')) return 2;
-
-  return null;
-}
-
-function usuarioPuede(...niveles) {
-  const nivel = obtenerNivelUsuario();
-  return nivel !== null && niveles.includes(nivel);
-}
-
-function obtenerNombreUsuarioVisible() {
-  return localStorage.getItem('usuarioNombre')
-    || localStorage.getItem('usuarioActivo')
-    || 'Usuario';
-}
-
-function puedeAccederSeccion(section) {
-  if (section === 'solicitudes') {
-    return localStorage.getItem('sesionActiva') === 'true';
-  }
-
-  const niveles = ACCESOS_POR_SECCION[section];
-  return Array.isArray(niveles) && usuarioPuede(...niveles);
-}
-
-function mostrarAccesoDenegado() {
-  const viewer = document.getElementById('viewer');
-  if (!viewer) return;
-
-  viewer.innerHTML = `
-    <div class="status-box">No tienes permisos para acceder a esta funcion.</div>
-  `;
-}
 
 function mostrarPopupGuardado(mensaje, opciones = {}) {
   const titulo = opciones.titulo || 'Guardado correctamente';
@@ -134,6 +70,7 @@ function cerrarPopupGuardado() {
   }
 }
 
+// Navegacion principal entre secciones del sistema.
 function aplicarPermisosNavegacion() {
   document.querySelectorAll('#sideMenu [data-section]').forEach(button => {
     button.hidden = !puedeAccederSeccion(button.dataset.section);
@@ -218,6 +155,7 @@ function showSection(section) {
 }
 
 
+// Vista Inicio: tablero con solicitudes, codigos y distribucion por grupo.
 function renderDashboardInicio() {
   const viewer = document.getElementById('viewer');
   if (!viewer) return;
@@ -844,6 +782,7 @@ function obtenerDashboardGruposMock() {
   return DASHBOARD_GRUPOS_BASE;
 }
 
+// Buscador de BD_General con busqueda normal y busqueda especial por campo.
 function renderBuscador() {
   const viewer = document.getElementById('viewer');
 
@@ -1011,6 +950,7 @@ function renderVisualizer() {
   `;
 }
 
+// Manual embebido del sistema.
 function renderManual() {
   const viewer = document.getElementById('viewer');
 
@@ -1020,6 +960,7 @@ function renderManual() {
   `;
 }
 
+// Utilidades de formato usadas por varias vistas.
 function escapeHtml(text) {
   return String(text || '')
     .replace(/&/g, '&amp;')
@@ -1090,6 +1031,7 @@ function renderStatusBadge(status) {
   `;
 }
 
+// Edicion rapida de Muliix desde el buscador; respeta el permiso del usuario.
 function renderMuliixCheckbox(valor, id) {
   const puedeEditar = usuarioPuedeEditarMuliixBuscador();
   const idSeguro = Number(id);
@@ -1256,17 +1198,6 @@ function actualizarFilaMuliixBuscador(checkbox, data) {
   }
 }
 
-function normalizarBooleanoMuliix(valor) {
-  if (valor === true) return true;
-  if (valor === false || valor === null || valor === undefined) return false;
-
-  const normalizado = normalizarTextoFlexible(valor);
-  return normalizado === 'TRUE'
-    || normalizado === 'SI'
-    || normalizado === '1'
-    || normalizado === 'YES';
-}
-
 function normalizarTextoFlexible(texto) {
   return String(texto || '')
     .normalize('NFD')
@@ -1347,6 +1278,7 @@ function filtrarRegistrosPorInicioNormalizado(rows, busqueda, columnas) {
   ));
 }
 
+// Lectura paginada para evitar el limite normal de 1000 registros de Supabase.
 async function leerSupabasePaginado(
   tabla,
   columnas = '*',

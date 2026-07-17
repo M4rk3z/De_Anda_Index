@@ -1,3 +1,4 @@
+// Estado general del modulo Solicitudes.
 let solicitudSeguimientoId = null;
 let solicitudArticuloContador = 1;
 let solicitudActualData = null;
@@ -7,6 +8,7 @@ let solicitudGuardadoEnProceso = false;
 let solicitudConfirmacionCallback = null;
 const SOLICITUD_LISTADO_LIMITE = 10;
 const TIPO_SOLICITUD_ALTA_PRODUCTO = 'Alta de Producto';
+// Tipos nuevos de solicitud y columnas extra usadas en Supabase.
 const SOLICITUD_TIPOS_NUEVOS = {
   baja_articulos: 'Baja de articulos',
   modificacion_articulos: 'Modificacion de Articulos',
@@ -26,6 +28,7 @@ const SOLICITUD_CAMPOS_EXTRA = [
   'Solicitud_Cambio_A_Hacer'
 ];
 
+// Permisos y reglas de propiedad de solicitudes.
 function obtenerTipoSolicitud(row) {
   return row?.Tipo_Solicitud || TIPO_SOLICITUD_ALTA_PRODUCTO;
 }
@@ -84,10 +87,7 @@ function puedeAdministrarSolicitudPropia(solicitud) {
   return esControlTotalSolicitudes() || esSolicitudPropia(solicitud);
 }
 
-function esSolicitudLiberada(solicitud) {
-  return normalizarTextoFlexible(solicitud?.Status || '') === 'LIBERADO';
-}
-
+// Catalogo local de unidades usadas por Alta de Producto.
 const SOLICITUD_UNIDADES_MEDIDA = [
   ['PZA', 'PZA - Pieza'],
   ['KG', 'KG - Kilogramo'],
@@ -133,6 +133,7 @@ function ocultarStatusSolicitudes() {
   status.textContent = '';
 }
 
+// Listado principal de solicitudes.
 window.renderSolicitudes = function renderSolicitudes() {
   const viewer = document.getElementById('viewer');
   if (!viewer) return;
@@ -449,6 +450,7 @@ function esSolicitudCerradaConComentario(solicitud) {
     || status === 'RECHAZADO';
 }
 
+// Comentario final visible para solicitudes liberadas o rechazadas.
 window.verComentarioCierreSolicitud = function verComentarioCierreSolicitud(index) {
   const solicitud = solicitudesListadoRows[index];
   if (!solicitud) return;
@@ -481,36 +483,6 @@ window.verComentarioCierreSolicitud = function verComentarioCierreSolicitud(inde
 
 window.cerrarComentarioCierreSolicitud = function cerrarComentarioCierreSolicitud() {
   document.getElementById('popupComentarioCierreSolicitud')?.remove();
-};
-
-window.verMotivoRechazoSolicitud = function verMotivoRechazoSolicitud(index) {
-  const solicitud = solicitudesListadoRows[index];
-  if (!solicitud) return;
-
-  document.getElementById('popupMotivoRechazoVista')?.remove();
-
-  const overlay = document.createElement('div');
-  overlay.id = 'popupMotivoRechazoVista';
-  overlay.className = 'popup-tipos-overlay';
-  overlay.innerHTML = `
-    <div class="popup-tipos rechazo-popup" role="dialog" aria-modal="true">
-      <div class="popup-tipos-header">
-        <h3>Motivo del rechazo - ${escapeHtml(solicitud.Folio || '')}</h3>
-        <button type="button" onclick="cerrarMotivoRechazoVista()">Cerrar</button>
-      </div>
-      <div class="popup-tipos-body">
-        <div class="rechazo-motivo-texto">
-          ${escapeHtml(solicitud.Motivo_Rechazo || 'No hay un motivo registrado.')}
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
-};
-
-window.cerrarMotivoRechazoVista = function cerrarMotivoRechazoVista() {
-  document.getElementById('popupMotivoRechazoVista')?.remove();
 };
 
 function mostrarConfirmacionSolicitud(mensaje, onConfirmar) {
@@ -549,6 +521,7 @@ window.confirmarAccionSolicitud = function confirmarAccionSolicitud() {
   if (callback) callback();
 };
 
+// Edicion de solicitudes abiertas por el solicitante o control total.
 window.editarSolicitud = async function editarSolicitud(id) {
   const viewer = document.getElementById('viewer');
   if (!viewer || !supabaseClient) return;
@@ -643,6 +616,7 @@ window.editarSolicitud = async function editarSolicitud(id) {
   if (status) status.textContent = `Editando solicitud ${data.Folio || ''}.`;
 };
 
+// Eliminacion de solicitudes; solo nivel 0 puede borrar sin importar estatus.
 window.eliminarSolicitud = async function eliminarSolicitud(id) {
   if (!supabaseClient) return;
 
@@ -704,6 +678,7 @@ async function ejecutarEliminacionSolicitud(id) {
   cargarSolicitudes();
 }
 
+// Apertura de solicitud para revision, seguimiento o consulta.
 window.abrirSolicitud = async function abrirSolicitud(id) {
   const viewer = document.getElementById('viewer');
   if (!viewer || !supabaseClient) return;
@@ -1142,6 +1117,7 @@ window.guardarSeguimientoSolicitud = async function guardarSeguimientoSolicitud(
   });
 };
 
+// Cambio de estatus y comentario final de revision.
 window.cambiarStatusSolicitud = async function cambiarStatusSolicitud() {
   if (!puedeDarSeguimientoSolicitudes()) {
     mostrarAccesoDenegado();
@@ -1212,53 +1188,6 @@ window.cambiarStatusSolicitud = async function cambiarStatusSolicitud() {
     );
   }
   actualizarBotonSubirSolicitud();
-};
-
-function mostrarPopupMotivoRechazo() {
-  document.getElementById('popupMotivoRechazo')?.remove();
-
-  const overlay = document.createElement('div');
-  overlay.id = 'popupMotivoRechazo';
-  overlay.className = 'popup-tipos-overlay';
-  overlay.innerHTML = `
-    <div class="popup-tipos rechazo-popup" role="dialog" aria-modal="true">
-      <div class="popup-tipos-header">
-        <h3>Motivo del rechazo</h3>
-        <button type="button" onclick="cerrarPopupMotivoRechazo()">Cerrar</button>
-      </div>
-      <div class="popup-tipos-body">
-        <label for="motivoRechazoInput">Explica por que se rechaza la solicitud</label>
-        <textarea id="motivoRechazoInput" rows="5"></textarea>
-        <div id="motivoRechazoError" class="status-box">El motivo es obligatorio.</div>
-        <div class="rechazo-popup-actions">
-          <button type="button" onclick="cerrarPopupMotivoRechazo()">Cancelar</button>
-          <button type="button" onclick="confirmarRechazoSolicitud()">Confirmar rechazo</button>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
-  document.getElementById('motivoRechazoInput')?.focus();
-}
-
-window.cerrarPopupMotivoRechazo = function cerrarPopupMotivoRechazo() {
-  document.getElementById('popupMotivoRechazo')?.remove();
-};
-
-window.confirmarRechazoSolicitud = function confirmarRechazoSolicitud() {
-  const input = document.getElementById('motivoRechazoInput');
-  const errorBox = document.getElementById('motivoRechazoError');
-  const motivo = input?.value.trim() || '';
-
-  if (!motivo) {
-    if (errorBox) errorBox.textContent = 'Escribe el motivo antes de continuar.';
-    input?.focus();
-    return;
-  }
-
-  cerrarPopupMotivoRechazo();
-  cambiarStatusSolicitud(motivo);
 };
 
 window.actualizarBotonSubirSolicitud = function actualizarBotonSubirSolicitud() {
@@ -1345,6 +1274,7 @@ window.subirSolicitudBDGeneral = async function subirSolicitudBDGeneral() {
   if (statusBox) statusBox.textContent = 'Codigo subido correctamente a BD_General.';
 };
 
+// Generacion e impresion del PDF de solicitud.
 window.descargarSolicitudPDF = async function descargarSolicitudPDF() {
   if (!puedeDarSeguimientoSolicitudes()) {
     mostrarAccesoDenegado();
@@ -1597,6 +1527,7 @@ function esSolicitudGenerica(datos) {
   return Boolean(obtenerClaveTipoSolicitudGenerica(datos?.Tipo_Solicitud));
 }
 
+// Flujo historico de solicitud de cambio; se conserva por compatibilidad.
 window.solicitarCambio = async function solicitarCambio(id) {
   if (!usuarioPuedeEnSolicitudes(0, 2)) {
     mostrarAccesoDenegado();
@@ -2008,6 +1939,7 @@ function crearBloqueArticuloSolicitud(index) {
   `;
 }
 
+// Selector de nueva solicitud y formatos por tipo.
 window.mostrarNuevaSolicitud = function mostrarNuevaSolicitud() {
   const viewer = document.getElementById('viewer');
   if (!viewer) return;
@@ -2072,6 +2004,7 @@ window.cambiarTipoNuevaSolicitud = function cambiarTipoNuevaSolicitud() {
   contenido.innerHTML = '';
 };
 
+// Formatos genericos: baja, modificacion y centros de trabajo.
 function renderFormularioSolicitudGenerica(tipo, data = null, opciones = {}) {
   const contenido = document.getElementById(opciones.destinoId || 'solicitudTipoContenido');
   if (!contenido) return;
@@ -2291,6 +2224,7 @@ function renderCheckSolicitud(id, value, seleccionados = [], disabled = '') {
   `;
 }
 
+// Payload comun para guardar los nuevos tipos de solicitud.
 function construirPayloadSolicitudGenerica(tipo) {
   const categorias = Array.from(document.querySelectorAll('.solicitud-check-lista:checked'))
     .map(input => input.value);
@@ -2419,6 +2353,7 @@ window.guardarEdicionSolicitudGenerica = async function guardarEdicionSolicitudG
   });
 };
 
+// Alta de Producto: formato original con uno o varios articulos.
 window.crearSolicitud = function crearSolicitud(opciones = {}) {
   const destino = opciones.destinoId
     ? document.getElementById(opciones.destinoId)
@@ -2662,6 +2597,7 @@ window.limpiarSolicitud = function limpiarSolicitud() {
   crearSolicitud();
 };
 
+// Guardado de Alta de Producto con bloqueo contra doble clic.
 async function guardarSolicitud() {
   if (!usuarioPuedeEnSolicitudes(0, 2)) {
     mostrarAccesoDenegado();
