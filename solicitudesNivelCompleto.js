@@ -133,6 +133,10 @@ function ocultarStatusSolicitudes() {
   status.textContent = '';
 }
 
+function reiniciarBloqueoGuardadoSolicitud() {
+  solicitudGuardadoEnProceso = false;
+}
+
 // Listado principal de solicitudes.
 window.renderSolicitudes = function renderSolicitudes() {
   const viewer = document.getElementById('viewer');
@@ -1941,6 +1945,8 @@ function crearBloqueArticuloSolicitud(index) {
 
 // Selector de nueva solicitud y formatos por tipo.
 window.mostrarNuevaSolicitud = function mostrarNuevaSolicitud() {
+  reiniciarBloqueoGuardadoSolicitud();
+
   const viewer = document.getElementById('viewer');
   if (!viewer) return;
 
@@ -2355,6 +2361,8 @@ window.guardarEdicionSolicitudGenerica = async function guardarEdicionSolicitudG
 
 // Alta de Producto: formato original con uno o varios articulos.
 window.crearSolicitud = function crearSolicitud(opciones = {}) {
+  reiniciarBloqueoGuardadoSolicitud();
+
   const destino = opciones.destinoId
     ? document.getElementById(opciones.destinoId)
     : document.getElementById('viewer');
@@ -2687,7 +2695,10 @@ async function guardarSolicitud() {
       `Solicitud guardada correctamente. Folios: ${folios.join(', ') || 'generados'}.`,
       {
         titulo: 'Solicitud guardada',
-        onClose: () => showSection('bienvenida')
+        onClose: () => {
+          reiniciarBloqueoGuardadoSolicitud();
+          showSection('bienvenida');
+        }
       }
     );
   } catch (error) {
