@@ -150,15 +150,15 @@ function renderEditorMaestro() {
         <table class="catalog-table master-editor-table">
           <thead>
             <tr>
-              <th>Codigo Pixvs</th>
-              <th>Nombre Pixvs</th>
               <th>Codigo SAP</th>
               <th>Nombre SAP</th>
+              <th>Codigo Pixvs</th>
+              <th>Nombre Pixvs</th>
               <th>Version SAP</th>
               <th>Revision SAP</th>
               <th>Muliix</th>
               <th>Status</th>
-              <th>Fecha ultimo cambio</th>
+              <th>Fecha Ultimo Cambio</th>
               <th>Responsable</th>
               <th>Accion</th>
             </tr>
@@ -246,23 +246,6 @@ function renderResultadosEditorMaestro(rows) {
     <tr>
       <td>
         <input
-          id="maestro-codigo-pixvs-${index}"
-          class="master-input master-code-input"
-          type="text"
-          value="${escapeHtml(row['Codigo Pixvs'] || '')}"
-        >
-      </td>
-
-      <td>
-        <textarea
-          id="maestro-nombre-pixvs-${index}"
-          class="master-textarea"
-          rows="2"
-        >${escapeHtml(row['Nombre Pixvs'] || '')}</textarea>
-      </td>
-
-      <td>
-        <input
           id="maestro-codigo-sap-${index}"
           class="master-input master-code-input master-locked-input"
           type="text"
@@ -279,6 +262,23 @@ function renderResultadosEditorMaestro(rows) {
           class="master-textarea"
           rows="2"
         >${escapeHtml(row['Nombre SAP'] || '')}</textarea>
+      </td>
+
+      <td>
+        <input
+          id="maestro-codigo-pixvs-${index}"
+          class="master-input master-code-input"
+          type="text"
+          value="${escapeHtml(row['Codigo Pixvs'] || '')}"
+        >
+      </td>
+
+      <td>
+        <textarea
+          id="maestro-nombre-pixvs-${index}"
+          class="master-textarea"
+          rows="2"
+        >${escapeHtml(row['Nombre Pixvs'] || '')}</textarea>
       </td>
 
       <td>

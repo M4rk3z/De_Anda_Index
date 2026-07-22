@@ -812,12 +812,12 @@ function renderBuscador() {
 
       <div class="table-scroll">
         <table class="catalog-table results-table">
-          <thead>
-            <tr>
-              <th>Codigo Pixvs</th>
-              <th>Nombre Pixvs</th>
+            <thead>
+              <tr>
               <th>Codigo SAP</th>
               <th>Nombre SAP</th>
+              <th>Codigo Pixvs</th>
+              <th>Nombre Pixvs</th>
               <th>Version SAP</th>
               <th>Revision SAP</th>
               <th>Muliix</th>
@@ -923,10 +923,10 @@ async function buscarMateriaPrima() {
 
   tbody.innerHTML = resultados.map(item => `
     <tr>
-      <td>${escapeHtml(item['Codigo Pixvs'])}</td>
-      <td>${escapeHtml(item['Nombre Pixvs'])}</td>
       <td>${escapeHtml(item['Codigo SAP'])}</td>
       <td>${escapeHtml(item['Nombre SAP'])}</td>
+      <td>${escapeHtml(item['Codigo Pixvs'])}</td>
+      <td>${escapeHtml(item['Nombre Pixvs'])}</td>
       <td>${escapeHtml(item['Version SAP'])}</td>
       <td>${escapeHtml(item['Revision SAP'])}</td>
       <td>${renderMuliixCheckbox(item['Muliix'], item['Id'])}</td>
