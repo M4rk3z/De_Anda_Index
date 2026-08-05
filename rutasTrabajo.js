@@ -1026,19 +1026,29 @@ async function guardarRutasTrabajoArticulo() {
 
   setRutaTrabajoStatus('Guardando arbol...');
 
-  const { error: errorDelete } = await supabaseClient
+  const { data: nodosAnteriores, error: errorLectura } = await supabaseClient
     .from('Rutas_Trabajo_Nodos')
-    .delete()
+    .select('id')
     .eq('BD_General_Id', articulo.Id);
 
-  if (errorDelete) {
-    setRutaTrabajoStatus('No se pudo reemplazar el arbol: ' + errorDelete.message);
+  if (errorLectura) {
+    setRutaTrabajoStatus('No se pudo preparar el reemplazo del arbol: ' + errorLectura.message);
     return;
   }
 
-  const errorInsert = await insertarNodosTrabajo(nodos, null);
+  const idsInsertados = [];
+  const errorInsert = await insertarNodosTrabajo(nodos, null, idsInsertados);
   if (errorInsert) {
+    await limpiarNodosInsertadosTrabajo(idsInsertados);
     setRutaTrabajoStatus('Error al guardar arbol: ' + errorInsert.message);
+    return;
+  }
+
+  const idsAnteriores = (nodosAnteriores || []).map(row => row.id).filter(Boolean);
+  const errorDelete = await eliminarNodosTrabajoPorIds(idsAnteriores);
+  if (errorDelete) {
+    setRutaTrabajoStatus('El arbol nuevo se guardo, pero no se pudo borrar la version anterior: ' + errorDelete.message);
+    await cargarRutasTrabajoArticulo();
     return;
   }
 
@@ -1046,7 +1056,7 @@ async function guardarRutasTrabajoArticulo() {
   await cargarRutasTrabajoArticulo();
 }
 
-async function insertarNodosTrabajo(nodos, parentId) {
+async function insertarNodosTrabajo(nodos, parentId, idsInsertados = []) {
   const articulo = rutaTrabajoArticuloActual;
 
   for (const nodo of nodos || []) {
@@ -1076,9 +1086,32 @@ async function insertarNodosTrabajo(nodos, parentId) {
       .maybeSingle();
 
     if (error || !data) return error || new Error('No se pudo guardar un nodo.');
+    idsInsertados.push(data.id);
 
-    const errorHijos = await insertarNodosTrabajo(nodo.children || [], data.id);
+    const errorHijos = await insertarNodosTrabajo(nodo.children || [], data.id, idsInsertados);
     if (errorHijos) return errorHijos;
+  }
+
+  return null;
+}
+
+async function limpiarNodosInsertadosTrabajo(ids) {
+  if (!ids?.length) return null;
+  return eliminarNodosTrabajoPorIds(ids);
+}
+
+async function eliminarNodosTrabajoPorIds(ids) {
+  if (!ids?.length) return null;
+
+  const idsUnicos = Array.from(new Set(ids.filter(Boolean)));
+  for (let index = 0; index < idsUnicos.length; index += 100) {
+    const bloque = idsUnicos.slice(index, index + 100);
+    const { error } = await supabaseClient
+      .from('Rutas_Trabajo_Nodos')
+      .delete()
+      .in('id', bloque);
+
+    if (error) return error;
   }
 
   return null;
