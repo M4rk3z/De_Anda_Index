@@ -8,7 +8,9 @@ const supabaseClient = supabase.createClient(
 );
 
 let dashboardCharts = [];
+let buscadorResultadosRows = [];
 const DASHBOARD_GRUPOS_OCULTOS = new Set(['I']);
+const PREFIJOS_CODIGO_SAP_PT = new Set(['A', 'V', 'E', 'T', 'P', 'G', 'X', 'Q', 'N']);
 
 // Grupos visibles del dashboard; el conteo se calcula con la primera letra de Codigo SAP.
 const DASHBOARD_GRUPOS_BASE = [
@@ -824,12 +826,13 @@ function renderBuscador() {
               <th>Status</th>
               <th>Fecha Ultimo Cambio</th>
               <th>Responsable</th>
+              <th>Rutas</th>
             </tr>
           </thead>
 
           <tbody id="buscadorResults">
             <tr>
-              <td colspan="10">Sin resultados todavia.</td>
+              <td colspan="11">Sin resultados todavia.</td>
             </tr>
           </tbody>
         </table>
@@ -856,9 +859,10 @@ async function buscarMateriaPrima() {
 
     tbody.innerHTML = `
       <tr>
-        <td colspan="10">Sin resultados todavia.</td>
+        <td colspan="11">Sin resultados todavia.</td>
       </tr>
     `;
+    buscadorResultadosRows = [];
 
     return;
   }
@@ -885,9 +889,10 @@ async function buscarMateriaPrima() {
 
     tbody.innerHTML = `
       <tr>
-        <td colspan="10">${escapeHtml(error.message)}</td>
+        <td colspan="11">${escapeHtml(error.message)}</td>
       </tr>
     `;
+    buscadorResultadosRows = [];
 
     return;
   }
@@ -910,9 +915,10 @@ async function buscarMateriaPrima() {
 
     tbody.innerHTML = `
       <tr>
-        <td colspan="10">No hay coincidencias.</td>
+        <td colspan="11">No hay coincidencias.</td>
       </tr>
     `;
+    buscadorResultadosRows = [];
 
     return;
   }
@@ -921,7 +927,8 @@ async function buscarMateriaPrima() {
     ? `Resultados encontrados: ${resultados.length} | Filtro por inicio en ${busquedaEspecial.etiqueta}`
     : `Resultados encontrados: ${resultados.length}`;
 
-  tbody.innerHTML = resultados.map(item => `
+  buscadorResultadosRows = resultados;
+  tbody.innerHTML = resultados.map((item, index) => `
     <tr>
       <td>${escapeHtml(item['Codigo SAP'])}</td>
       <td>${escapeHtml(item['Nombre SAP'])}</td>
@@ -933,8 +940,28 @@ async function buscarMateriaPrima() {
       <td>${renderStatusBadge(item['Status'])}</td>
       <td>${escapeHtml(formatearFecha(item['Fecha de ultimo Cambio']))}</td>
       <td>${escapeHtml(item['Responsable'])}</td>
+      <td>${renderBotonRutaTrabajo(buscadorResultadosRows[index], index)}</td>
     </tr>
   `).join('');
+}
+
+function esArticuloPT(row) {
+  const codigoSap = String(row?.['Codigo SAP'] || '').trim().toUpperCase();
+  return Boolean(codigoSap) && PREFIJOS_CODIGO_SAP_PT.has(codigoSap[0]);
+}
+
+function renderBotonRutaTrabajo(item, index) {
+  if (!esArticuloPT(item)) {
+    return '<span class="route-not-available">Solo PT</span>';
+  }
+
+  return `
+    <button
+      type="button"
+      class="route-open-button"
+      onclick="abrirRutasTrabajoDesdeBuscador(${index})"
+    >Rutas</button>
+  `;
 }
 
 function renderVisualizer() {

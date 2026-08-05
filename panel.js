@@ -71,6 +71,27 @@ const CATALOGOS_ADMIN = {
       { name: 'Tipos', label: 'Tipo' },
       { name: 'Id', label: 'ID' }
     ]
+  },
+  'CT_CentrosTrabajo': {
+    label: 'CT_CentrosTrabajo',
+    sortField: 'CT',
+    keys: ['CT'],
+    fields: [
+      { name: 'Actividad', label: 'Actividad' },
+      { name: 'CT', label: 'Centro de Trabajo' },
+      { name: 'Descripcion', label: 'Descripcion CT' }
+    ]
+  },
+  'CR_CentrosRecurso': {
+    label: 'CR_CentrosRecurso',
+    sortField: 'CR',
+    keys: ['CR'],
+    fields: [
+      { name: 'CT', label: 'Centro de Trabajo' },
+      { name: 'CR', label: 'Centro de Recurso' },
+      { name: 'Descripcion', label: 'Descripcion CR' },
+      { name: 'Costo_Hr', label: 'Costo por hora', optional: true, type: 'number' }
+    ]
   }
 };
 
@@ -570,7 +591,7 @@ function renderFormularioNuevoCatalogo() {
       ${fields.map((field, index) => `
         <div class="field-block">
           <label for="catalogoNuevo-${index}">${escapeHtml(field.label)}</label>
-          <input id="catalogoNuevo-${index}" type="text" autocomplete="off">
+          <input id="catalogoNuevo-${index}" type="${field.type === 'number' ? 'number' : 'text'}" ${field.type === 'number' ? 'step="0.0001"' : ''} autocomplete="off">
         </div>
       `).join('')}
       <button type="button" onclick="agregarRegistroCatalogo()">Agregar</button>
@@ -672,7 +693,8 @@ function renderFilasCatalogoAdmin(filtro = '') {
           <input
             id="catalogo-${index}-${fieldIndex}"
             class="master-input"
-            type="text"
+            type="${field.type === 'number' ? 'number' : 'text'}"
+            ${field.type === 'number' ? 'step="0.0001"' : ''}
             value="${escapeHtml(row[field.name] ?? '')}"
             ${field.readonly ? 'disabled' : ''}
           >
@@ -706,12 +728,18 @@ async function agregarRegistroCatalogo() {
   for (let index = 0; index < fields.length; index += 1) {
     const value = document.getElementById(`catalogoNuevo-${index}`)?.value.trim() || '';
 
-    if (!value) {
+    if (!value && !fields[index].optional) {
       status.textContent = `Completa el campo ${fields[index].label}.`;
       return;
     }
 
-    payload[fields[index].name] = value;
+    const valorPreparado = prepararValorCatalogo(fields[index], value);
+    if (valorPreparado === undefined) {
+      status.textContent = `El campo ${fields[index].label} debe ser un numero valido.`;
+      return;
+    }
+
+    payload[fields[index].name] = valorPreparado;
   }
 
   status.textContent = 'Agregando registro...';
@@ -731,6 +759,7 @@ async function agregarRegistroCatalogo() {
   });
 
   await cargarCatalogoAdmin();
+  invalidarCatalogosRutasTrabajo();
   status.textContent = 'Registro agregado correctamente.';
   mostrarPopupGuardado('Registro agregado correctamente.');
 }
@@ -754,12 +783,18 @@ async function guardarRegistroCatalogo(index) {
 
     const value = document.getElementById(`catalogo-${index}-${fieldIndex}`)?.value.trim() || '';
 
-    if (!value) {
+    if (!value && !field.optional) {
       status.textContent = `El campo ${field.label} no puede quedar vacio.`;
       return;
     }
 
-    payload[field.name] = value;
+    const valorPreparado = prepararValorCatalogo(field, value);
+    if (valorPreparado === undefined) {
+      status.textContent = `El campo ${field.label} debe ser un numero valido.`;
+      return;
+    }
+
+    payload[field.name] = valorPreparado;
   }
 
   status.textContent = 'Guardando cambios...';
@@ -777,6 +812,7 @@ async function guardarRegistroCatalogo(index) {
   }
 
   await cargarCatalogoAdmin();
+  invalidarCatalogosRutasTrabajo();
   status.textContent = 'Registro actualizado correctamente.';
   mostrarPopupGuardado('Registro actualizado correctamente.');
 }
@@ -811,7 +847,26 @@ async function eliminarRegistroCatalogo(index) {
   }
 
   await cargarCatalogoAdmin();
+  invalidarCatalogosRutasTrabajo();
   status.textContent = 'Registro eliminado correctamente.';
+}
+
+function invalidarCatalogosRutasTrabajo() {
+  if (catalogoAdminActual === 'CT_CentrosTrabajo' && typeof rutaTrabajoCatalogoCentrosTrabajo !== 'undefined') {
+    rutaTrabajoCatalogoCentrosTrabajo = null;
+  }
+
+  if (catalogoAdminActual === 'CR_CentrosRecurso' && typeof rutaTrabajoCatalogoCentrosRecurso !== 'undefined') {
+    rutaTrabajoCatalogoCentrosRecurso = null;
+  }
+}
+
+function prepararValorCatalogo(field, value) {
+  if (!value && field.optional) return null;
+  if (field.type !== 'number') return value;
+
+  const numero = Number(value);
+  return Number.isNaN(numero) ? undefined : numero;
 }
 
 function aplicarIdentificadorCatalogo(query, config, row) {
