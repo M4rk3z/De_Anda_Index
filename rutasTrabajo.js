@@ -890,12 +890,12 @@ function obtenerNodosTrabajoValidos() {
       };
 
       if (limpio.tipo === 'RUTA') {
-        limpio.Tiempo_Pzs_Hr = limpio.Tiempo_Pzs_Hr === '' ? null : Number(limpio.Tiempo_Pzs_Hr);
-        limpio.Costo_Hr = limpio.Costo_Hr === '' ? null : Number(limpio.Costo_Hr);
+        limpio.Tiempo_Pzs_Hr = normalizarNumeroRutaTrabajo(limpio.Tiempo_Pzs_Hr);
+        limpio.Costo_Hr = normalizarNumeroRutaTrabajo(limpio.Costo_Hr);
       }
 
       if (limpio.tipo === 'MATERIA_PRIMA') {
-        limpio.Cantidad = limpio.Cantidad === '' ? null : Number(limpio.Cantidad);
+        limpio.Cantidad = normalizarNumeroRutaTrabajo(limpio.Cantidad);
       }
 
       return limpio;
@@ -932,6 +932,14 @@ function arbolTrabajoTieneNumerosInvalidos(nodos) {
     || (nodo.tipo === 'MATERIA_PRIMA' && Number.isNaN(nodo.Cantidad))
     || arbolTrabajoTieneNumerosInvalidos(nodo.children || [])
   ));
+}
+
+function normalizarNumeroRutaTrabajo(valor) {
+  if (valor === null || valor === undefined) return null;
+  if (String(valor).trim() === '') return null;
+
+  const numero = Number(valor);
+  return Number.isNaN(numero) ? NaN : numero;
 }
 
 function descargarRutasTrabajoArticulo() {
@@ -1057,9 +1065,9 @@ async function insertarNodosTrabajo(nodos, parentId) {
         Descripcion_CT: nodo.Descripcion_CT || null,
         CR: nodo.CR || null,
         Descripcion_CR: nodo.Descripcion_CR || null,
-        Tiempo_Pzs_Hr: nodo.Tiempo_Pzs_Hr ?? null,
-        Costo_Hr: nodo.Costo_Hr ?? null,
-        Cantidad: nodo.Cantidad ?? null,
+        Tiempo_Pzs_Hr: normalizarNumeroRutaTrabajo(nodo.Tiempo_Pzs_Hr),
+        Costo_Hr: normalizarNumeroRutaTrabajo(nodo.Costo_Hr),
+        Cantidad: normalizarNumeroRutaTrabajo(nodo.Cantidad),
         Tipo_Materia: nodo.Tipo_Materia || null,
         Responsable: obtenerNombreUsuarioVisible(),
         Fecha_Actualizacion: new Date().toISOString()
