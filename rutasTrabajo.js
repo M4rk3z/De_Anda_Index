@@ -952,43 +952,140 @@ function descargarRutasTrabajoArticulo() {
     return;
   }
 
-  const contenido = construirTextoDescargaRutasTrabajo(articulo, nodos);
-  const nombreArchivo = `rutas-${limpiarNombreArchivoRuta(articulo['Codigo SAP'] || 'articulo')}.txt`;
-  descargarArchivoTextoRuta(nombreArchivo, contenido);
+  const contenido = construirExcelXmlDescargaRutasTrabajo(articulo, nodos);
+  const nombreArchivo = `rutas-${limpiarNombreArchivoRuta(articulo['Codigo SAP'] || 'articulo')}.xls`;
+  descargarArchivoRuta(nombreArchivo, contenido, 'application/vnd.ms-excel;charset=utf-8');
   setRutaTrabajoStatus('Archivo de rutas descargado.');
 }
 
-function construirTextoDescargaRutasTrabajo(articulo, nodos) {
-  const lineas = [
-    'RUTAS DE TRABAJO',
-    `Padre: ${articulo['Codigo SAP'] || '-'}`,
-    `Descripcion: ${articulo['Nombre SAP'] || '-'}`,
-    `Fecha de descarga: ${formatearFecha(new Date().toISOString())}`,
+function construirExcelXmlDescargaRutasTrabajo(articulo, nodos) {
+  const filas = [];
+  agregarFilaExcelRuta(filas, [
+    'Nivel jerarquico',
+    'Tipo',
+    'Nivel',
+    'Codigo',
+    'Descripcion',
+    'CT',
+    'Descripcion CT',
+    'CR',
+    'Descripcion CR',
+    'Tiempo Pzs x Hr',
+    'Costo por Hr',
+    'Cantidad',
+    'Tipo MP'
+  ], true);
+
+  agregarFilaExcelRuta(filas, [
+    0,
+    'Padre',
     '',
-    'Ramificacion:'
+    articulo['Codigo SAP'] || '',
+    articulo['Nombre SAP'] || '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    ''
+  ]);
+
+  nodos.forEach(nodo => agregarNodoExcelDescargaRutasTrabajo(filas, nodo, 1));
+
+  const lineas = [
+    '<?xml version="1.0"?>',
+    '<?mso-application progid="Excel.Sheet"?>',
+    '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"',
+    ' xmlns:o="urn:schemas-microsoft-com:office:office"',
+    ' xmlns:x="urn:schemas-microsoft-com:office:excel"',
+    ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">',
+    '  <Styles>',
+    '    <Style ss:ID="Header"><Font ss:Bold="1"/><Interior ss:Color="#DCEAF7" ss:Pattern="Solid"/></Style>',
+    '  </Styles>',
+    `  <Worksheet ss:Name="${escapeXmlAtributoRuta(limpiarNombreHojaExcelRuta(articulo['Codigo SAP'] || 'Rutas'))}">`,
+    '    <Table>',
+    ...filas,
+    '    </Table>',
+    '  </Worksheet>',
+    '</Workbook>'
   ];
 
-  nodos.forEach(nodo => agregarNodoDescargaRutasTrabajo(lineas, nodo, 1));
   return lineas.join('\r\n');
 }
 
-function agregarNodoDescargaRutasTrabajo(lineas, nodo, profundidad) {
-  const sangria = '  '.repeat(profundidad);
-
+function agregarNodoExcelDescargaRutasTrabajo(filas, nodo, profundidad) {
   if (nodo.tipo === 'HIJO') {
-    lineas.push(`${sangria}- Hijo ${nodo.Nivel || ''}: ${nodo.Codigo || '-'} | ${nodo.Descripcion || '-'}`);
+    agregarFilaExcelRuta(filas, [
+      profundidad,
+      'Hijo',
+      nodo.Nivel || '',
+      nodo.Codigo || '',
+      textoConSangriaRuta(profundidad, nodo.Descripcion || ''),
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      ''
+    ]);
   } else if (nodo.tipo === 'RUTA') {
-    lineas.push(`${sangria}- Ruta ${nodo.Nivel || ''}: CT ${nodo.CT || '-'} (${nodo.Descripcion_CT || '-'}) -> CR ${nodo.CR || '-'} (${nodo.Descripcion_CR || '-'})`);
-    lineas.push(`${sangria}  Tiempo Pzs x Hr: ${nodo.Tiempo_Pzs_Hr ?? '-'} | Costo por Hr: ${nodo.Costo_Hr ?? '-'}`);
+    agregarFilaExcelRuta(filas, [
+      profundidad,
+      'Ruta',
+      nodo.Nivel || '',
+      '',
+      textoConSangriaRuta(profundidad, 'Ruta de trabajo'),
+      nodo.CT || '',
+      nodo.Descripcion_CT || '',
+      nodo.CR || '',
+      nodo.Descripcion_CR || '',
+      nodo.Tiempo_Pzs_Hr ?? '',
+      nodo.Costo_Hr ?? '',
+      '',
+      ''
+    ]);
   } else if (nodo.tipo === 'MATERIA_PRIMA') {
-    lineas.push(`${sangria}- MP ${nodo.Nivel || ''}: ${nodo.Codigo || '-'} | ${nodo.Descripcion || '-'} | Cantidad: ${nodo.Cantidad ?? '-'} | Tipo: ${nodo.Tipo_Materia || '-'}`);
+    agregarFilaExcelRuta(filas, [
+      profundidad,
+      'Materia Prima',
+      nodo.Nivel || '',
+      nodo.Codigo || '',
+      textoConSangriaRuta(profundidad, nodo.Descripcion || ''),
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      nodo.Cantidad ?? '',
+      nodo.Tipo_Materia || ''
+    ]);
   }
 
-  (nodo.children || []).forEach(hijo => agregarNodoDescargaRutasTrabajo(lineas, hijo, profundidad + 1));
+  (nodo.children || []).forEach(hijo => agregarNodoExcelDescargaRutasTrabajo(filas, hijo, profundidad + 1));
 }
 
-function descargarArchivoTextoRuta(nombreArchivo, contenido) {
-  const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
+function agregarFilaExcelRuta(filas, valores, esHeader = false) {
+  const estilo = esHeader ? ' ss:StyleID="Header"' : '';
+  filas.push(`      <Row${estilo}>${valores.map(valor => crearCeldaExcelRuta(valor)).join('')}</Row>`);
+}
+
+function crearCeldaExcelRuta(valor) {
+  const esNumero = typeof valor === 'number' && Number.isFinite(valor);
+  const tipo = esNumero ? 'Number' : 'String';
+  return `<Cell><Data ss:Type="${tipo}">${escapeXmlTextoRuta(valor)}</Data></Cell>`;
+}
+
+function textoConSangriaRuta(profundidad, texto) {
+  return `${'  '.repeat(Math.max(0, profundidad - 1))}${texto}`;
+}
+
+function descargarArchivoRuta(nombreArchivo, contenido, tipoMime) {
+  const blob = new Blob([contenido], { type: tipoMime });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
 
@@ -998,6 +1095,26 @@ function descargarArchivoTextoRuta(nombreArchivo, contenido) {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+function escapeXmlTextoRuta(valor) {
+  return String(valor ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function escapeXmlAtributoRuta(valor) {
+  return escapeXmlTextoRuta(valor)
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function limpiarNombreHojaExcelRuta(texto) {
+  return String(texto || 'Rutas')
+    .replace(/[\\/?*[\]:]/g, '_')
+    .slice(0, 31)
+    || 'Rutas';
 }
 
 function limpiarNombreArchivoRuta(texto) {
