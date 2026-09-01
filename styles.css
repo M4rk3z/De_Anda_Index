@@ -1290,15 +1290,139 @@ body { width: 100%; height: 100%; font-family: Arial, sans-serif; background: #f
 .catalog-admin-table td:last-child { min-width: 180px; }
 .catalog-admin-actions { display: flex; gap: 8px; }
 .catalog-admin-actions .danger-button { background: #b91c1c; }
+.log-control-card { display: grid; gap: 14px; }
+.log-control-toolbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(150px, 220px) minmax(140px, 190px) auto;
+  align-items: end;
+  gap: 12px;
+}
+.log-control-toolbar button,
+.log-detail-button {
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid #0a6ed1;
+  border-radius: 4px;
+  background: #0a6ed1;
+  color: #ffffff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.log-control-layout {
+  display: grid;
+  grid-template-columns: minmax(520px, 1fr) minmax(280px, 380px);
+  gap: 12px;
+  align-items: start;
+}
+.log-control-table {
+  min-width: 980px;
+}
+.log-control-table th,
+.log-control-table td {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.log-control-table td:nth-child(7) {
+  min-width: 220px;
+  white-space: normal;
+}
+.log-action-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 4px;
+  background: #eef7ff;
+  color: #0a4b8f;
+  font-size: 11px;
+  font-weight: 900;
+}
+.log-control-detail {
+  position: sticky;
+  top: 12px;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #c7d9ea;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+.log-control-detail h3,
+.log-control-detail h4 {
+  margin: 0;
+  color: #002b55;
+}
+.log-control-detail p { margin: 0; color: #425b76; }
+.log-control-detail dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+.log-control-detail dl div {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 8px;
+}
+.log-control-detail dt {
+  color: #425b76;
+  font-size: 11px;
+  font-weight: 900;
+}
+.log-control-detail dd {
+  min-width: 0;
+  margin: 0;
+  color: #020617;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.log-change-list {
+  display: grid;
+  gap: 6px;
+}
+.log-change-row {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+  padding: 7px;
+  border: 1px solid #e5eef7;
+  border-radius: 4px;
+  background: #ffffff;
+  font-size: 11px;
+}
+.log-change-row strong,
+.log-change-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.log-change-row span:nth-child(2) {
+  color: #9b0000;
+}
+.log-change-row span:nth-child(3) {
+  color: #0f6b3a;
+}
 @media (max-width: 1000px) {
   .catalog-admin-toolbar,
-  .catalog-admin-new-grid {
+  .catalog-admin-new-grid,
+  .log-control-toolbar,
+  .log-control-layout {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .log-control-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .log-control-detail {
+    position: static;
   }
 }
 @media (max-width: 640px) {
   .catalog-admin-toolbar,
-  .catalog-admin-new-grid {
+  .catalog-admin-new-grid,
+  .log-control-toolbar {
     grid-template-columns: 1fr;
   }
 }

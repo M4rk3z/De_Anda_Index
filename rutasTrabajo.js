@@ -1145,7 +1145,7 @@ async function guardarRutasTrabajoArticulo() {
 
   const { data: nodosAnteriores, error: errorLectura } = await supabaseClient
     .from('Rutas_Trabajo_Nodos')
-    .select('id')
+    .select('*')
     .eq('BD_General_Id', articulo.Id);
 
   if (errorLectura) {
@@ -1170,6 +1170,24 @@ async function guardarRutasTrabajoArticulo() {
   }
 
   setRutaTrabajoStatus('Arbol guardado correctamente.');
+  if (typeof registrarLogControl === 'function') {
+    await registrarLogControl({
+      modulo: 'Rutas de Trabajo',
+      accion: 'REEMPLAZO',
+      tabla: 'Rutas_Trabajo_Nodos',
+      registroId: articulo.Id,
+      codigoSap: articulo['Codigo SAP'] || null,
+      descripcion: 'Reemplazo de arbol de rutas',
+      antes: {
+        total_nodos: (nodosAnteriores || []).length,
+        nodos: nodosAnteriores || []
+      },
+      despues: {
+        total_nodos: idsInsertados.length,
+        arbol: nodos
+      }
+    });
+  }
   await cargarRutasTrabajoArticulo();
 }
 

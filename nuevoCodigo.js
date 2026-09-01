@@ -866,25 +866,40 @@ async function guardarNuevoCodigoMateriaPrima() {
 
   const responsable = obtenerNombreUsuarioVisible();
 
-  const { error } = await supabaseClient
+  const payload = {
+    [COLUMNA_CODIGO_PIXVS]: codigoPixvs,
+    [COLUMNA_DESCRIPCION_1]: descripcion,
+    [COLUMNA_CODIGO]: codigoNuevo,
+    [COLUMNA_DESCRIPCION_2]: construirDescripcionSAPNuevoCodigo(descripcion),
+    'Version SAP': '01',
+    'Revision SAP': '01',
+    'Status': '2 - Local',
+    [COLUMNA_FECHA_CAMBIO]: new Date().toISOString(),
+    'Responsable': responsable
+  };
+
+  const { data, error } = await supabaseClient
     .from(TABLA_CODIGOS)
-    .insert([
-      {
-        [COLUMNA_CODIGO_PIXVS]: codigoPixvs,
-        [COLUMNA_DESCRIPCION_1]: descripcion,
-        [COLUMNA_CODIGO]: codigoNuevo,
-        [COLUMNA_DESCRIPCION_2]: construirDescripcionSAPNuevoCodigo(descripcion),
-        'Version SAP': '01',
-        'Revision SAP': '01',
-        'Status': '2 - Local',
-        [COLUMNA_FECHA_CAMBIO]: new Date().toISOString(),
-        'Responsable': responsable
-      }
-    ]);
+    .insert([payload])
+    .select('"Id","Codigo Pixvs","Nombre Pixvs","Codigo SAP","Nombre SAP","Version SAP","Revision SAP","Status","Fecha de ultimo Cambio","Responsable"')
+    .maybeSingle();
 
   if (error) {
     setNuevoCodigoStatus('Error al guardar: ' + error.message);
     return;
+  }
+
+  if (typeof registrarLogControl === 'function') {
+    await registrarLogControl({
+      modulo: 'Nuevo Codigo',
+      accion: 'ALTA',
+      tabla: TABLA_CODIGOS,
+      registroId: data?.Id || codigoNuevo,
+      codigoSap: codigoNuevo,
+      descripcion: 'Alta de codigo desde Nuevo Codigo',
+      antes: null,
+      despues: data || payload
+    });
   }
 
   setNuevoCodigoStatus('Se genero correctamente.');

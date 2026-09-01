@@ -17,6 +17,15 @@ const BD_GENERAL_EXPORT_COLUMNS = [
   'Fecha de ultimo Cambio',
   'Responsable'
 ];
+const TABLA_LOG_CONTROL = 'Log_Control';
+const LOG_CONTROL_ACCIONES = ['ALTA', 'EDICION', 'ELIMINACION', 'REEMPLAZO'];
+const LOG_CONTROL_MODULOS = [
+  'Nuevo Codigo',
+  'Editor Maestro',
+  'Catalogos',
+  'Rutas de Trabajo',
+  'Control de Accesos'
+];
 
 // Catalogos administrables desde el panel.
 const CATALOGOS_ADMIN = {
@@ -98,6 +107,7 @@ const CATALOGOS_ADMIN = {
 let catalogoAdminActual = 'DT_Grupos';
 let catalogoAdminRows = [];
 let catalogoAdminOrden = 'asc';
+let logControlRows = [];
 
 // Entrada principal del Panel de control.
 function renderPanelControl() {
@@ -121,6 +131,7 @@ function renderPanelControl() {
       <div class="nuevo-codigo-panel">
         <div class="panel-actions">
           <button onclick="renderEditorMaestro()">Editor Maestro</button>
+          <button onclick="renderLogControl()">Log Control</button>
           ${usuarioPuede(0) ? '<button onclick="renderControlAccesos()">Control de Accesos</button>' : ''}
           ${usuarioPuede(0) ? '<button onclick="renderAdministrarCatalogos()">Administrar Catalogos</button>' : ''}
           ${usuarioPuede(0) ? '<button onclick="renderFuncionesAdicionales()">Importar a Sheets</button>' : ''}
@@ -443,6 +454,17 @@ async function guardarRegistroMaestro(index) {
   editorMaestroRows[index] = data;
   renderResultadosEditorMaestro(editorMaestroRows);
 
+  await registrarLogControl({
+    modulo: 'Editor Maestro',
+    accion: 'EDICION',
+    tabla: 'BD_General',
+    registroId: row.Id,
+    codigoSap: row['Codigo SAP'] || data['Codigo SAP'],
+    descripcion: 'Actualizacion desde Editor Maestro',
+    antes: row,
+    despues: data
+  });
+
   if (statusBox) {
     statusBox.textContent = 'Registro actualizado correctamente.';
   }
@@ -474,6 +496,255 @@ function convertirEnteroOpcional(valor) {
 
 function valorONull(valor) {
   return valor === '' ? null : valor;
+}
+
+/*************************************************
+ * LOG CONTROL
+ *************************************************/
+
+function renderLogControl() {
+  if (!usuarioPuede(0, 1)) {
+    mostrarAccesoDenegado();
+    return;
+  }
+
+  const contenedor = document.getElementById('panelControlContenido');
+  if (!contenedor) return;
+
+  contenedor.innerHTML = `
+    <div class="control-card log-control-card">
+      <div class="catalog-header">
+        <h2>Log Control</h2>
+        <p>Historial de altas, ediciones, eliminaciones y reemplazos realizados en el sistema.</p>
+      </div>
+
+      <div class="log-control-toolbar">
+        <div class="field-block">
+          <label for="logControlFiltro">Buscar</label>
+          <input
+            id="logControlFiltro"
+            type="search"
+            placeholder="Codigo, usuario, tabla o descripcion"
+            oninput="renderFilasLogControl()"
+          >
+        </div>
+
+        <div class="field-block">
+          <label for="logControlModulo">Modulo</label>
+          <select id="logControlModulo" onchange="renderFilasLogControl()">
+            <option value="">Todos</option>
+            ${LOG_CONTROL_MODULOS.map(modulo => `
+              <option value="${escapeHtml(modulo)}">${escapeHtml(modulo)}</option>
+            `).join('')}
+          </select>
+        </div>
+
+        <div class="field-block">
+          <label for="logControlAccion">Accion</label>
+          <select id="logControlAccion" onchange="renderFilasLogControl()">
+            <option value="">Todas</option>
+            ${LOG_CONTROL_ACCIONES.map(accion => `
+              <option value="${escapeHtml(accion)}">${escapeHtml(accion)}</option>
+            `).join('')}
+          </select>
+        </div>
+
+        <button type="button" onclick="cargarLogControl()">Actualizar</button>
+      </div>
+
+      <div id="logControlStatus" class="status-box">Cargando log...</div>
+
+      <div class="log-control-layout">
+        <div class="table-scroll">
+          <table class="catalog-table log-control-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Usuario</th>
+                <th>Modulo</th>
+                <th>Accion</th>
+                <th>Tabla</th>
+                <th>Registro</th>
+                <th>Descripcion</th>
+                <th>Detalle</th>
+              </tr>
+            </thead>
+            <tbody id="logControlBody">
+              <tr>
+                <td colspan="8">Sin eventos todavia.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <aside id="logControlDetalle" class="log-control-detail">
+          <h3>Detalle del cambio</h3>
+          <p>Selecciona un evento para revisar que cambio.</p>
+        </aside>
+      </div>
+    </div>
+  `;
+
+  cargarLogControl();
+}
+
+async function cargarLogControl() {
+  const status = document.getElementById('logControlStatus');
+  const body = document.getElementById('logControlBody');
+  if (status) status.textContent = 'Cargando log...';
+
+  const { data, error } = await supabaseClient
+    .from(TABLA_LOG_CONTROL)
+    .select('*')
+    .order('fecha', { ascending: false })
+    .limit(300);
+
+  if (error) {
+    logControlRows = [];
+    if (status) status.textContent = 'Error al cargar log: ' + error.message;
+    if (body) body.innerHTML = '<tr><td colspan="8">No se pudo cargar el log.</td></tr>';
+    return;
+  }
+
+  logControlRows = data || [];
+  if (status) status.textContent = `Eventos cargados: ${logControlRows.length}`;
+  renderFilasLogControl();
+}
+
+function renderFilasLogControl() {
+  const body = document.getElementById('logControlBody');
+  if (!body) return;
+
+  const filtro = normalizarTextoFlexible(document.getElementById('logControlFiltro')?.value || '');
+  const modulo = document.getElementById('logControlModulo')?.value || '';
+  const accion = document.getElementById('logControlAccion')?.value || '';
+
+  const rows = logControlRows
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => {
+      if (modulo && row.modulo !== modulo) return false;
+      if (accion && row.accion !== accion) return false;
+      if (!filtro) return true;
+
+      return [
+        row.usuario,
+        row.modulo,
+        row.accion,
+        row.tabla,
+        row.registro_id,
+        row.codigo_sap,
+        row.descripcion
+      ].some(valor => normalizarTextoFlexible(valor).includes(filtro));
+    });
+
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="8">No hay eventos con esos filtros.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = rows.map(({ row, index }) => `
+    <tr>
+      <td>${escapeHtml(formatearFecha(row.fecha))}</td>
+      <td>${escapeHtml(row.usuario || '-')}</td>
+      <td>${escapeHtml(row.modulo || '-')}</td>
+      <td><span class="log-action-badge">${escapeHtml(row.accion || '-')}</span></td>
+      <td>${escapeHtml(row.tabla || '-')}</td>
+      <td>${escapeHtml(row.codigo_sap || row.registro_id || '-')}</td>
+      <td>${escapeHtml(row.descripcion || '-')}</td>
+      <td>
+        <button type="button" class="log-detail-button" onclick="mostrarDetalleLogControl(${index})">
+          Ver
+        </button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function mostrarDetalleLogControl(index) {
+  const row = logControlRows[index];
+  const detalle = document.getElementById('logControlDetalle');
+  if (!row || !detalle) return;
+
+  const cambios = obtenerCambiosLogControl(row.antes, row.despues);
+
+  detalle.innerHTML = `
+    <h3>${escapeHtml(row.accion || 'Cambio')}</h3>
+    <dl>
+      <div><dt>Fecha</dt><dd>${escapeHtml(formatearFecha(row.fecha))}</dd></div>
+      <div><dt>Usuario</dt><dd>${escapeHtml(row.usuario || '-')}</dd></div>
+      <div><dt>Modulo</dt><dd>${escapeHtml(row.modulo || '-')}</dd></div>
+      <div><dt>Tabla</dt><dd>${escapeHtml(row.tabla || '-')}</dd></div>
+      <div><dt>Registro</dt><dd>${escapeHtml(row.codigo_sap || row.registro_id || '-')}</dd></div>
+    </dl>
+
+    <h4>Cambios</h4>
+    ${cambios.length ? `
+      <div class="log-change-list">
+        ${cambios.map(cambio => `
+          <div class="log-change-row">
+            <strong>${escapeHtml(cambio.campo)}</strong>
+            <span>${escapeHtml(cambio.antes)}</span>
+            <span>${escapeHtml(cambio.despues)}</span>
+          </div>
+        `).join('')}
+      </div>
+    ` : '<p>No hay diferencias campo por campo para mostrar.</p>'}
+  `;
+}
+
+function obtenerCambiosLogControl(antes, despues) {
+  const antesObj = esObjetoPlanoLog(antes) ? antes : {};
+  const despuesObj = esObjetoPlanoLog(despues) ? despues : {};
+  const keys = Array.from(new Set([
+    ...Object.keys(antesObj),
+    ...Object.keys(despuesObj)
+  ])).sort((a, b) => a.localeCompare(b));
+
+  return keys
+    .map(key => ({
+      campo: key,
+      antes: formatearValorLogControl(antesObj[key]),
+      despues: formatearValorLogControl(despuesObj[key])
+    }))
+    .filter(row => row.antes !== row.despues);
+}
+
+function esObjetoPlanoLog(valor) {
+  return Boolean(valor) && typeof valor === 'object' && !Array.isArray(valor);
+}
+
+function formatearValorLogControl(valor) {
+  if (valor === null || valor === undefined || valor === '') return '-';
+  if (typeof valor === 'object') return JSON.stringify(valor);
+  return String(valor);
+}
+
+async function registrarLogControl(evento = {}) {
+  if (!supabaseClient) return;
+
+  const payload = {
+    fecha: new Date().toISOString(),
+    usuario: obtenerNombreUsuarioVisible(),
+    usuario_id: localStorage.getItem('usuarioId') || null,
+    modulo: evento.modulo || 'Sistema',
+    accion: evento.accion || 'EDICION',
+    tabla: evento.tabla || null,
+    registro_id: evento.registroId === undefined || evento.registroId === null
+      ? null
+      : String(evento.registroId),
+    codigo_sap: evento.codigoSap || null,
+    descripcion: evento.descripcion || null,
+    antes: evento.antes || null,
+    despues: evento.despues || null
+  };
+
+  const { error } = await supabaseClient
+    .from(TABLA_LOG_CONTROL)
+    .insert(payload);
+
+  if (error) {
+    console.warn('No se pudo registrar Log Control:', error.message);
+  }
 }
 
 /*************************************************
@@ -744,9 +1015,11 @@ async function agregarRegistroCatalogo() {
 
   status.textContent = 'Agregando registro...';
 
-  const { error } = await supabaseClient
+  const { data, error } = await supabaseClient
     .from(catalogoAdminActual)
-    .insert(payload);
+    .insert(payload)
+    .select('*')
+    .maybeSingle();
 
   if (error) {
     status.textContent = 'Error al agregar: ' + error.message;
@@ -760,6 +1033,15 @@ async function agregarRegistroCatalogo() {
 
   await cargarCatalogoAdmin();
   invalidarCatalogosRutasTrabajo();
+  await registrarLogControl({
+    modulo: 'Catalogos',
+    accion: 'ALTA',
+    tabla: catalogoAdminActual,
+    registroId: obtenerRegistroIdCatalogo(config, data || payload),
+    descripcion: `Alta en ${config.label}`,
+    antes: null,
+    despues: data || payload
+  });
   status.textContent = 'Registro agregado correctamente.';
   mostrarPopupGuardado('Registro agregado correctamente.');
 }
@@ -804,7 +1086,9 @@ async function guardarRegistroCatalogo(index) {
     .update(payload);
 
   query = aplicarIdentificadorCatalogo(query, config, row);
-  const { error } = await query;
+  const { data, error } = await query
+    .select('*')
+    .maybeSingle();
 
   if (error) {
     status.textContent = 'Error al guardar: ' + error.message;
@@ -813,6 +1097,15 @@ async function guardarRegistroCatalogo(index) {
 
   await cargarCatalogoAdmin();
   invalidarCatalogosRutasTrabajo();
+  await registrarLogControl({
+    modulo: 'Catalogos',
+    accion: 'EDICION',
+    tabla: catalogoAdminActual,
+    registroId: obtenerRegistroIdCatalogo(config, row),
+    descripcion: `Actualizacion en ${config.label}`,
+    antes: row,
+    despues: data || { ...row, ...payload }
+  });
   status.textContent = 'Registro actualizado correctamente.';
   mostrarPopupGuardado('Registro actualizado correctamente.');
 }
@@ -839,7 +1132,9 @@ async function eliminarRegistroCatalogo(index) {
     .delete();
 
   query = aplicarIdentificadorCatalogo(query, config, row);
-  const { error } = await query;
+  const { data, error } = await query
+    .select('*')
+    .maybeSingle();
 
   if (error) {
     status.textContent = 'Error al eliminar: ' + error.message;
@@ -848,6 +1143,15 @@ async function eliminarRegistroCatalogo(index) {
 
   await cargarCatalogoAdmin();
   invalidarCatalogosRutasTrabajo();
+  await registrarLogControl({
+    modulo: 'Catalogos',
+    accion: 'ELIMINACION',
+    tabla: catalogoAdminActual,
+    registroId: obtenerRegistroIdCatalogo(config, row),
+    descripcion: `Eliminacion en ${config.label}`,
+    antes: data || row,
+    despues: null
+  });
   status.textContent = 'Registro eliminado correctamente.';
 }
 
@@ -882,6 +1186,15 @@ function aplicarIdentificadorCatalogo(query, config, row) {
   });
 
   return query;
+}
+
+function obtenerRegistroIdCatalogo(config, row) {
+  if (!config || !row) return null;
+
+  return config.keys
+    .map(key => row[key])
+    .filter(value => value !== null && value !== undefined && value !== '')
+    .join(' | ') || null;
 }
 
 // Importar a Sheets: compara conteos y exporta BD_General por bloques.
